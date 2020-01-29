@@ -6,17 +6,14 @@
 #include <limits>
 #include <cinttypes>
 #include "seal/ckks.h"
+#include "seal/util/croots.h"
 
 using namespace std;
 using namespace seal::util;
 
 namespace seal
 {
-    // For C++14 compatibility need to define static constexpr
-    // member variables with no initialization here.
-    constexpr double CKKSEncoder::PI_;
-
-    CKKSEncoder::CKKSEncoder(shared_ptr<SEALContext> context) : 
+    CKKSEncoder::CKKSEncoder(shared_ptr<SEALContext> context) :
         context_(context)
     {
         // Verify parameters
@@ -29,7 +26,7 @@ namespace seal
             throw invalid_argument("encryption parameters are not set correctly");
         }
 
-        auto &context_data = *context_->context_data();
+        auto &context_data = *context_->first_context_data();
         if (context_data.parms().scheme() != scheme_type::CKKS)
         {
             throw invalid_argument("unsupported scheme");
@@ -39,12 +36,12 @@ namespace seal
         slots_ = coeff_count >> 1;
         int logn = get_power_of_two(coeff_count);
 
-        matrix_reps_index_map_ = allocate_uint(coeff_count, pool_);
+        matrix_reps_index_map_ = allocate<size_t>(coeff_count, pool_);
 
-        // Copy from the matrix to the value vectors 
+        // Copy from the matrix to the value vectors
         uint64_t gen = 3;
         uint64_t pos = 1;
-        uint64_t m = coeff_count << 1;
+        uint64_t m = static_cast<uint64_t>(coeff_count) << 1;
         for (size_t i = 0; i < slots_; i++)
         {
             // Position in normal bit order
@@ -52,8 +49,10 @@ namespace seal
             uint64_t index2 = (m - pos - 1) >> 1;
 
             // Set the bit-reversed locations
-            matrix_reps_index_map_[i] = reverse_bits(index1, logn);
-            matrix_reps_index_map_[slots_ | i] = reverse_bits(index2, logn);
+            matrix_reps_index_map_[i] =
+                safe_cast<size_t>(reverse_bits(index1, logn));
+            matrix_reps_index_map_[slots_ | i] =
+                safe_cast<size_t>(reverse_bits(index2, logn));
 
             // Next primitive root
             pos *= gen;
@@ -62,20 +61,19 @@ namespace seal
 
         roots_ = allocate<complex<double>>(coeff_count, pool_);
         inv_roots_ = allocate<complex<double>>(coeff_count, pool_);
-        complex<double> psi{ cos((2 * PI_) / static_cast<double>(m)), 
-            sin((2 * PI_) / static_cast<double>(m)) };
         for (size_t i = 0; i < coeff_count; i++)
         {
-            roots_[i] = pow(psi, static_cast<double>(reverse_bits(i, logn)));
-            inv_roots_[i] = 1.0 / roots_[i];
+            roots_[i] = ComplexRoots::get_root(
+                reverse_bits(i, logn), static_cast<size_t>(m));
+            inv_roots_[i] = conj(roots_[i]);
         }
     }
 
-    void CKKSEncoder::encode_internal(double value, parms_id_type parms_id, 
+    void CKKSEncoder::encode_internal(double value, parms_id_type parms_id,
         double scale, Plaintext &destination, MemoryPoolHandle pool)
     {
         // Verify parameters.
-        auto context_data_ptr = context_->context_data(parms_id);
+        auto context_data_ptr = context_->get_context_data(parms_id);
         if (!context_data_ptr)
         {
             throw invalid_argument("parms_id is not valid for encryption parameters");
@@ -217,7 +215,7 @@ namespace seal
         Plaintext &destination)
     {
         // Verify parameters.
-        auto context_data_ptr = context_->context_data(parms_id);
+        auto context_data_ptr = context_->get_context_data(parms_id);
         if (!context_data_ptr)
         {
             throw invalid_argument("parms_id is not valid for encryption parameters");

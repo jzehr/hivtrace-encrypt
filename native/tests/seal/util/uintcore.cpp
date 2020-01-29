@@ -353,7 +353,7 @@ namespace SEALTest
         }
 
         TEST(UIntCore, GetSignificantUInt64CountUInt)
-        {   
+        {
             MemoryPool &pool = *global_variables::global_memory_pool;
             auto ptr(allocate_uint(2, pool));
             ptr[0] = 0;
@@ -387,6 +387,43 @@ namespace SEALTest
             ptr[0] = 0xFFFFFFFFFFFFFFFF;
             ptr[1] = 0xFFFFFFFFFFFFFFFF;
             ASSERT_EQ(2ULL, get_significant_uint64_count_uint(ptr.get(), 2));
+        }
+
+        TEST(UIntCore, GetNonzeroUInt64CountUInt)
+        {
+            MemoryPool &pool = *global_variables::global_memory_pool;
+            auto ptr(allocate_uint(2, pool));
+            ptr[0] = 0;
+            ptr[1] = 0;
+            ASSERT_EQ(0ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 1;
+            ptr[1] = 0;
+            ASSERT_EQ(1ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 2;
+            ptr[1] = 0;
+            ASSERT_EQ(1ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr[1] = 0;
+            ASSERT_EQ(1ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 0;
+            ptr[1] = 1;
+            ASSERT_EQ(1ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr[1] = 1;
+            ASSERT_EQ(2ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr[1] = 0x8000000000000000;
+            ASSERT_EQ(2ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
+
+            ptr[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr[1] = 0xFFFFFFFFFFFFFFFF;
+            ASSERT_EQ(2ULL, get_nonzero_uint64_count_uint(ptr.get(), 2));
         }
 
         TEST(UIntCore, GetPowerOfTwoUInt)
@@ -719,7 +756,7 @@ namespace SEALTest
 
             ptr2 = duplicate_uint_if_needed(ptr.get(), 2, 1, false, pool);
             ASSERT_TRUE(ptr2.get() == ptr.get());
-            
+
             ptr2 = duplicate_uint_if_needed(ptr.get(), 1, 2, false, pool);
             ASSERT_TRUE(ptr2.get() != ptr.get());
             ASSERT_EQ(ptr[0], ptr2[0]);
@@ -740,7 +777,7 @@ namespace SEALTest
             ASSERT_EQ(32ULL, hamming_weight(0xFFFFFFFFULL));
             ASSERT_EQ(64ULL, hamming_weight(0xFFFFFFFFFFFFFFFFULL));
             ASSERT_EQ(32ULL, hamming_weight(0xF0F0F0F0F0F0F0F0ULL));
-            ASSERT_EQ(16ULL, hamming_weight(0xA0A0A0A0A0A0A0A0ULL)); 
+            ASSERT_EQ(16ULL, hamming_weight(0xA0A0A0A0A0A0A0A0ULL));
         }
 
         TEST(UIntCore, HammingWeightSplit)

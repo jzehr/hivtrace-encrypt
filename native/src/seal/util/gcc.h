@@ -17,11 +17,6 @@
 #pragma GCC error "g++-6 cannot compile Microsoft SEAL as C++17; set CMake build option `SEAL_USE_CXX17' to OFF"
 #endif
 
-// Are we using MSGSL?
-#ifdef SEAL_USE_MSGSL
-#include <gsl/gsl>
-#endif
-
 // Are intrinsics enabled?
 #ifdef SEAL_USE_INTRIN
 #include <x86intrin.h>
@@ -43,6 +38,18 @@
     unsigned __int128 product = static_cast<unsigned __int128>(operand1) * operand2;\
     result128[0] = static_cast<unsigned long long>(product);                        \
     result128[1] = static_cast<unsigned long long>(product >> 64);                  \
+}
+
+#define SEAL_DIVIDE_UINT128_UINT64(numerator, denominator, result) {                \
+    unsigned __int128 n, q;                                                         \
+    n = (static_cast<unsigned __int128>(numerator[1]) << 64) |                      \
+        (static_cast<unsigned __int128>(numerator[0]));                             \
+    q = n / denominator;                                                            \
+    n -= q * denominator;                                                           \
+    numerator[0] = static_cast<std::uint64_t>(n);                                   \
+    numerator[1] = static_cast<std::uint64_t>(n >> 64);                             \
+    quotient[0] = static_cast<std::uint64_t>(q);                                    \
+    quotient[1] = static_cast<std::uint64_t>(q >> 64);                              \
 }
 #endif
 

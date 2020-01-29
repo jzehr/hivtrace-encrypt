@@ -5,7 +5,7 @@
 #include "seal/secretkey.h"
 #include "seal/context.h"
 #include "seal/keygenerator.h"
-#include "seal/defaultparams.h"
+#include "seal/modulus.h"
 
 using namespace seal;
 using namespace std;
@@ -17,15 +17,15 @@ namespace SEALTest
         stringstream stream;
         {
             EncryptionParameters parms(scheme_type::BFV);
-            parms.set_noise_standard_deviation(3.20);
             parms.set_poly_modulus_degree(64);
             parms.set_plain_modulus(1 << 6);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(64, { 60 }));
+
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
             KeyGenerator keygen(context);
 
             SecretKey sk = keygen.secret_key();
-            ASSERT_TRUE(sk.parms_id() == parms.parms_id());
+            ASSERT_TRUE(sk.parms_id() == context->key_parms_id());
             sk.save(stream);
 
             SecretKey sk2;
@@ -36,15 +36,15 @@ namespace SEALTest
         }
         {
             EncryptionParameters parms(scheme_type::BFV);
-            parms.set_noise_standard_deviation(3.20);
             parms.set_poly_modulus_degree(256);
             parms.set_plain_modulus(1 << 20);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_30bit(0), DefaultParams::small_mods_40bit(0) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(256, { 30, 40 }));
+
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
             KeyGenerator keygen(context);
 
             SecretKey sk = keygen.secret_key();
-            ASSERT_TRUE(sk.parms_id() == parms.parms_id());
+            ASSERT_TRUE(sk.parms_id() == context->key_parms_id());
             sk.save(stream);
 
             SecretKey sk2;

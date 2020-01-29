@@ -4,12 +4,11 @@
 using Microsoft.Research.SEAL.Tools;
 using System;
 using System.IO;
-using System.Text;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Research.SEAL
 {
     /// <summary>Represent an integer modulus of up to 62 bits.</summary>
-    /// 
     /// <remarks>
     /// <para>
     /// Represent an integer modulus of up to 62 bits. An instance of the SmallModulus
@@ -23,12 +22,13 @@ namespace Microsoft.Research.SEAL
     /// is  concurrently mutating it.
     /// </para>
     /// </remarks>
-    /// <seealso cref="EncryptionParameters">See EncryptionParameters for a description 
+    /// <seealso cref="EncryptionParameters">See EncryptionParameters for a description
     /// of the encryption parameters.</seealso>
-    public class SmallModulus : NativeObject, IEquatable<SmallModulus>, IEquatable<ulong>
+    public class SmallModulus : NativeObject,
+        IEquatable<SmallModulus>, IEquatable<ulong>,
+        IComparable<SmallModulus>, IComparable<ulong>
     {
         /// <summary>Creates a SmallModulus instance.</summary>
-        /// 
         /// <remarks>
         /// Creates a SmallModulus instance. The value of the SmallModulus is set to 0.
         /// </remarks>
@@ -39,13 +39,12 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>Creates a SmallModulus instance.</summary>
-        /// 
         /// <remarks>
         /// Creates a SmallModulus instance. The value of the SmallModulus is set to
         /// the given value.
         /// </remarks>
         /// <param name="value">The integer modulus</param>
-        /// <exception cref="System.ArgumentException">if value is 1 or more than
+        /// <exception cref="ArgumentException">if value is 1 or more than
         /// 62 bits</exception>
         public SmallModulus(ulong value)
         {
@@ -54,9 +53,8 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>Creates a new SmallModulus by copying a given one.</summary>
-        /// 
         /// <param name="copy">The SmallModulus to copy from</param>
-        /// <exception cref="System.ArgumentNullException">if copy is null</exception>
+        /// <exception cref="ArgumentNullException">if copy is null</exception>
         public SmallModulus(SmallModulus copy)
         {
             if (null == copy)
@@ -77,9 +75,8 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>Copies a given SmallModulus to the current one.</summary>
-        /// 
         /// <param name="assign">The SmallModulus to copy from</param>
-        /// <exception cref="System.ArgumentNullException">if assign is null</exception>
+        /// <exception cref="ArgumentNullException">if assign is null</exception>
         public void Set(SmallModulus assign)
         {
             if (null == assign)
@@ -89,9 +86,8 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>Sets the value of the SmallModulus.</summary>
-        /// 
         /// <param name="value">The new integer modulus</param>
-        /// <exception cref="System.ArgumentException">if value is 1 or more than 
+        /// <exception cref="ArgumentException">if value is 1 or more than
         /// 62 bits</exception>
         public void Set(ulong value)
         {
@@ -99,8 +95,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Returns the significant bit count of the value of the current 
-        /// SmallModulus.
+        /// Returns the significant bit count of the value of the current SmallModulus.
         /// </summary>
         public int BitCount
         {
@@ -112,8 +107,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Returns the size (in 64-bit words) of the value of the current 
-        /// SmallModulus.
+        /// Returns the size (in 64-bit words) of the value of the current SmallModulus.
         /// </summary>
         public ulong UInt64Count
         {
@@ -136,9 +130,9 @@ namespace Microsoft.Research.SEAL
             }
         }
 
-        /// <summary>Returns the Barrett ratio computed for the value of the current 
-        /// SmallModulus.</summary>
-        /// 
+        /// <summary>
+        /// Returns the Barrett ratio computed for the value of the current SmallModulus.
+        /// </summary>
         /// <remarks>
         /// Returns the Barrett ratio computed for the value of the current SmallModulus.
         /// The first two components of the Barrett ratio are the floor of 2^128/value,
@@ -166,61 +160,82 @@ namespace Microsoft.Research.SEAL
             }
         }
 
-        /// <summary>Saves the SmallModulus to an output stream.</summary>
-        /// 
-        /// <remarks>
-        /// Saves the SmallModulus to an output stream. The output is in binary format and 
-        /// not human-readable. The output stream must have the "binary" flag set.
-        /// </remarks>
-        /// 
-        /// <param name="stream">The stream to save the SmallModulus to</param>
-        /// <exception cref="System.ArgumentNullException">if stream is null</exception>
-        public void Save(Stream stream)
+        /// <summary>
+        /// Returns whether the value of the current SmallModulus is a prime number.
+        /// </summary>
+        public bool IsPrime
         {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
-
-            using (BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+            get
             {
-                writer.Write(BitCount);
-                writer.Write(UInt64Count);
-                writer.Write(Value);
+                NativeMethods.SmallModulus_IsPrime(NativePtr, out bool result);
+                return result;
             }
         }
 
-        /// <summary>Loads a SmallModulus from an input stream overwriting the current 
-        /// SmallModulus.</summary>
-        /// 
-        /// <param name="stream">The stream to load the SmallModulus from</param>
-        /// <exception cref="System.ArgumentNullException">if stream is null</exception>
-        public void Load(Stream stream)
+        /// <summary>
+        /// Returns an upper bound on the size of the SmallModulus, as if it was
+        /// written to an output stream.
+        /// </summary>
+        /// <param name="comprMode">The compression mode</param>
+        /// <exception cref="ArgumentException">if the compression mode is not
+        /// supported</exception>
+        /// <exception cref="InvalidOperationException">if the size does not fit in
+        /// the return type</exception>
+        public long SaveSize(ComprModeType comprMode)
         {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
+            NativeMethods.SmallModulus_SaveSize(
+                NativePtr, (byte)comprMode, out long outBytes);
+            return outBytes;
+        }
 
-            try
-            {
-                using (BinaryReader reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true))
-                {
-                    int bitCount = reader.ReadInt32();
-                    ulong uint64Count = reader.ReadUInt64();
-                    ulong value = reader.ReadUInt64();
-                    Set(value);
+        /// <summary>Saves the SmallModulus to an output stream.</summary>
+        /// <remarks>
+        /// Saves the SmallModulus to an output stream. The output is in binary format
+        /// and not human-readable.
+        /// </remarks>
+        /// <param name="stream">The stream to save the SmallModulus to</param>
+        /// <param name="comprMode">The desired compression mode</param>
+        /// <exception cref="ArgumentNullException">if stream is null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support writing</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the data to be saved
+        /// is invalid, if compression mode is not supported, or if compression
+        /// failed</exception>
+        public long Save(Stream stream, ComprModeType? comprMode = null)
+        {
+            comprMode = comprMode ?? Serialization.ComprModeDefault;
+            if (!Serialization.IsSupportedComprMode(comprMode.Value))
+                throw new InvalidOperationException("Unsupported compression mode");
 
-                    if (bitCount != BitCount)
-                        throw new InvalidOperationException("Expected bit count differs from actual bit count");
-                    if (uint64Count != UInt64Count)
-                        throw new InvalidOperationException("Expected uint64 count differs from actual uint64 count");
-                }
-            }
-            catch (EndOfStreamException ex)
-            {
-                throw new ArgumentException("End of stream reached", ex);
-            }
-            catch (IOException ex)
-            {
-                throw new ArgumentException("Could not load SmallModulus", ex);
-            }
+            ComprModeType comprModeValue = comprMode.Value;
+            return Serialization.Save(
+                (byte[] outptr, ulong size, byte cm, out long outBytes) =>
+                    NativeMethods.SmallModulus_Save(NativePtr, outptr, size,
+                    cm, out outBytes),
+                SaveSize(comprModeValue), comprModeValue, stream);
+        }
+
+        /// <summary>
+        /// Loads a SmallModulus from an input stream overwriting the current
+        /// SmallModulus.
+        /// </summary>
+        /// <param name="stream">The stream to load the SmallModulus from</param>
+        /// <exception cref="ArgumentNullException">if stream is null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support reading</exception>
+        /// <exception cref="EndOfStreamException">if the stream ended
+        /// unexpectedly</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the loaded data is invalid
+        /// or if the loaded compression mode is not supported</exception>
+        public long Load(Stream stream)
+        {
+            return Serialization.Load(
+                (byte[] outptr, ulong size, out long outBytes) =>
+                    NativeMethods.SmallModulus_Load(NativePtr, outptr, size,
+                    out outBytes),
+                stream);
         }
 
         /// <summary>
@@ -244,14 +259,12 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>Creates a SmallModulus instance.</summary>
-        /// 
         /// <remarks>
         /// Creates a SmallModulus instance. The value of the SmallModulus is set to
         /// the given value.
         /// </remarks>
         /// <param name="value">The integer modulus</param>
-        /// <exception cref="System.ArgumentException">if value is 1 or more than
-        /// 62 bits</exception>
+        /// <exception cref="ArgumentException">if value is 1 or more than 62 bits</exception>
         public static explicit operator SmallModulus(ulong value)
         {
             SmallModulus sm = new SmallModulus(value);
@@ -285,6 +298,35 @@ namespace Microsoft.Research.SEAL
         {
             NativeMethods.SmallModulus_Equals(NativePtr, other, out bool result);
             return result;
+        }
+
+        #endregion
+
+        #region IComparable<SmallModulus> methods
+
+        /// <summary>
+        /// Compares two SmallModulus instances.
+        /// </summary>
+        /// <param name="compare">The SmallModulus to compare against</param>
+        public int CompareTo(SmallModulus compare)
+        {
+            if (null == compare)
+                return 1;
+
+            return Value.CompareTo(compare.Value);
+        }
+
+        #endregion
+
+        #region IComparable<ulong> methods
+
+        /// <summary>
+        /// Compares a SmallModulus value to an unsigned integer.
+        /// </summary>
+        /// <param name="compare">The unsigned integer to compare against</param>
+        public int CompareTo(ulong compare)
+        {
+            return Value.CompareTo(compare);
         }
 
         #endregion

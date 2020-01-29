@@ -11,7 +11,7 @@ namespace Microsoft.Research.SEAL
     /// the IntegerEncoder class converts an integer into a plaintext polynomial by placing its
     /// binary digits as the coefficients of the polynomial. Decoding the integer amounts to
     /// evaluating the plaintext polynomial at x=2.
-    /// 
+    ///
     /// Addition and multiplication on the integer side translate into addition and multiplication
     /// on the encoded plaintext polynomial side, provided that the length of the polynomial
     /// never grows to be of the size of the polynomial modulus (PolyModulus), and that the
@@ -42,23 +42,15 @@ namespace Microsoft.Research.SEAL
         {
             if (null == context)
                 throw new ArgumentNullException(nameof(context));
+            if (!context.ParametersSet)
+                throw new ArgumentException("Encryption parameters are not set correctly");
 
-            NativeMethods.IntegerEncoder_Create1(context.NativePtr, out IntPtr encoderPtr);
+            SEALContext.ContextData contextData = context.FirstContextData;
+            if (contextData.Parms.Scheme != SchemeType.BFV)
+                throw new ArgumentException("Unsupported scheme");
+
+            NativeMethods.IntegerEncoder_Create(context.NativePtr, out IntPtr encoderPtr);
             NativePtr = encoderPtr;
-        }
-
-        /// <summary>
-        /// Creates a copy of a IntegerEncoder.
-        /// </summary>
-        /// <param name="copy">The IntegerEncoder to copy from</param>
-        /// <exception cref="ArgumentNullException">if copy is null</exception>
-        public IntegerEncoder(IntegerEncoder copy)
-        {
-            if (null == copy)
-                throw new ArgumentNullException(nameof(copy));
-
-            NativeMethods.IntegerEncoder_Create2(copy.NativePtr, out IntPtr ptr);
-            NativePtr = ptr;
         }
 
         /// <summary>
@@ -87,7 +79,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Decodes a plaintext polynomial and returns the result as uint. Mathematically 
+        /// Decodes a plaintext polynomial and returns the result as uint. Mathematically
         /// this amounts to evaluating the input polynomial at X = 2.
         /// </summary>
         /// <param name="plain">The plaintext to be decoded</param>
@@ -104,7 +96,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Decodes a plaintext polynomial and returns the result as ulong. Mathematically 
+        /// Decodes a plaintext polynomial and returns the result as ulong. Mathematically
         /// this amounts to evaluating the input polynomial at X=2.
         /// </summary>
         /// <param name="plain">The plaintext to be decoded</param>
@@ -194,7 +186,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Decodes a plaintext polynomial and returns the result as int. Mathematically 
+        /// Decodes a plaintext polynomial and returns the result as int. Mathematically
         /// this amounts to evaluating the input polynomial at X = 2.
         /// </summary>
         /// <param name="plain">The plaintext to be decoded</param>
@@ -211,7 +203,7 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Decodes a plaintext polynomial and returns the result as long. Mathematically 
+        /// Decodes a plaintext polynomial and returns the result as long. Mathematically
         /// this amounts to evaluating the input polynomial at X = 2.
         /// </summary>
         /// <param name="plain">The plaintext to be decoded</param>

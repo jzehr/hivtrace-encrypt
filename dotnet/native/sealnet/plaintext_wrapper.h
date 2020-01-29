@@ -7,7 +7,7 @@
 //
 // This API is provided as a simple interface for Microsoft SEAL library
 // that can be PInvoked by .Net code.
-// 
+//
 ///////////////////////////////////////////////////////////////////////////
 
 #include "sealnet/defines.h"
@@ -20,6 +20,8 @@ SEALNETNATIVE HRESULT SEALCALL Plaintext_Create2(uint64_t coeffCount, void *memo
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Create3(uint64_t capacity, uint64_t coeffCount, void *memoryPoolHandle, void **plaintext);
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Create4(char *hexPoly, void *memoryPoolHandle, void **plaintext);
+
+SEALNETNATIVE HRESULT SEALCALL Plaintext_Create5(void *copy, void **plaintext);
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Set1(void *thisptr, void *assign);
 
@@ -63,16 +65,22 @@ SEALNETNATIVE HRESULT SEALCALL Plaintext_Capacity(void *thisptr, uint64_t *capac
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_SignificantCoeffCount(void *thisptr, uint64_t *significant_coeff_count);
 
+SEALNETNATIVE HRESULT SEALCALL Plaintext_NonZeroCoeffCount(void *thisptr, uint64_t *nonzero_coeff_count);
+
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Scale(void *thisptr, double *scale);
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_SetScale(void *thisptr, double scale);
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Equals(void *thisptr, void *other, bool *result);
 
-SEALNETNATIVE HRESULT SEALCALL Plaintext_IsValidFor(void *thisptr, void *contextpr, bool *result);
-
-SEALNETNATIVE HRESULT SEALCALL Plaintext_IsMetadataValidFor(void *thisptr, void *contextpr, bool *result);
-
 SEALNETNATIVE HRESULT SEALCALL Plaintext_SwapData(void *thisptr, uint64_t count, uint64_t *new_data);
 
 SEALNETNATIVE HRESULT SEALCALL Plaintext_Pool(void *thisptr, void **pool);
+
+SEALNETNATIVE HRESULT SEALCALL Plaintext_SaveSize(void *thisptr, uint8_t compr_mode, int64_t *result);
+
+SEALNETNATIVE HRESULT SEALCALL Plaintext_Save(void *thisptr, uint8_t *outptr, uint64_t size, uint8_t compr_mode, int64_t *out_bytes);
+
+SEALNETNATIVE HRESULT SEALCALL Plaintext_UnsafeLoad(void *thisptr, void *context, uint8_t *inptr, uint64_t size, int64_t *in_bytes);
+
+SEALNETNATIVE HRESULT SEALCALL Plaintext_Load(void *thisptr, void *context, uint8_t *inptr, uint64_t size, int64_t *in_bytes);

@@ -118,7 +118,7 @@ namespace seal
             }
 
             // Determine bit length of coefficient.
-            int coeff_bit_count = 
+            int coeff_bit_count =
                 get_hex_string_bit_count(hex_poly_ptr + pos, coeff_length);
             if (coeff_bit_count > assign_coeff_bit_count)
             {
@@ -203,96 +203,7 @@ namespace seal
         return *this;
     }
 
-    bool Plaintext::is_valid_for(shared_ptr<const SEALContext> context) const
-    {
-        // Check metadata
-        if (!is_metadata_valid_for(context))
-        {
-            return false;
-        }
-
-        // Check the data
-        if (is_ntt_form())
-        {
-            auto context_data_ptr = context->context_data(parms_id_);
-            auto &parms = context_data_ptr->parms();
-            auto &coeff_modulus = parms.coeff_modulus();
-            size_t coeff_mod_count = coeff_modulus.size();
-            size_t poly_modulus_degree = parms.poly_modulus_degree();
-
-            const pt_coeff_type *ptr = data();
-            for (size_t j = 0; j < coeff_mod_count; j++)
-            {
-                uint64_t modulus = coeff_modulus[j].value();
-                for (size_t k = 0; k < poly_modulus_degree; k++, ptr++)
-                {
-                    if (*ptr >= modulus)
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-        else
-        {
-            auto &parms = context->context_data()->parms();
-            uint64_t modulus = parms.plain_modulus().value(); 
-            const pt_coeff_type *ptr = data();
-            for (size_t k = 0; k < data_.size(); k++, ptr++)
-            {
-                if (*ptr >= modulus)
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    bool Plaintext::is_metadata_valid_for(shared_ptr<const SEALContext> context) const
-    {
-        // Verify parameters
-        if (!context || !context->parameters_set())
-        {
-            return false;
-        }
-
-        if (is_ntt_form())
-        {
-            auto context_data_ptr = context->context_data(parms_id_);
-            if (!context_data_ptr)
-            {
-                return false;
-            }
-
-            auto &parms = context_data_ptr->parms();
-            auto &coeff_modulus = parms.coeff_modulus();
-            size_t poly_modulus_degree = parms.poly_modulus_degree();
-            if (mul_safe(coeff_modulus.size(), poly_modulus_degree) != data_.size())
-            {
-                return false;
-            }
-        }
-        else
-        {
-            auto &parms = context->context_data()->parms();
-            if (parms.scheme() != scheme_type::BFV)
-            {
-                return false;
-            }
-
-            size_t poly_modulus_degree = parms.poly_modulus_degree();
-            if (data_.size() > poly_modulus_degree)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    void Plaintext::save(ostream &stream) const
+    void Plaintext::save_members(ostream &stream) const
     {
         auto old_except_mask = stream.exceptions();
         try
@@ -301,20 +212,38 @@ namespace seal
             stream.exceptions(ios_base::badbit | ios_base::failbit);
 
             stream.write(reinterpret_cast<const char*>(&parms_id_), sizeof(parms_id_type));
+            uint64_t coeff_count64 = static_cast<uint64_t>(coeff_count_);
+            stream.write(reinterpret_cast<const char*>(&coeff_count64), sizeof(uint64_t));
             stream.write(reinterpret_cast<const char*>(&scale_), sizeof(double));
-            data_.save(stream);
+            data_.save(stream, compr_mode_type::none);
         }
-        catch (const exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
     }
 
-    void Plaintext::unsafe_load(istream &stream)
+    void Plaintext::load_members(shared_ptr<SEALContext> context, istream &stream)
     {
+        // Verify parameters
+        if (!context)
+        {
+            throw invalid_argument("invalid context");
+        }
+        if (!context->parameters_set())
+        {
+            throw invalid_argument("encryption parameters are not set correctly");
+        }
+
+        Plaintext new_data(data_.pool());
+
         auto old_except_mask = stream.exceptions();
         try
         {
@@ -324,28 +253,57 @@ namespace seal
             parms_id_type parms_id{};
             stream.read(reinterpret_cast<char*>(&parms_id), sizeof(parms_id_type));
 
+            uint64_t coeff_count64 = 0;
+            stream.read(reinterpret_cast<char*>(&coeff_count64), sizeof(uint64_t));
+
             double scale = 0;
             stream.read(reinterpret_cast<char*>(&scale), sizeof(double));
 
-            // Load the data
-            IntArray<pt_coeff_type> new_data(data_.pool());
-            new_data.load(stream);
+            // Set the metadata
+            new_data.parms_id_ = parms_id;
+            new_data.coeff_count_ = safe_cast<size_t>(coeff_count64);
+            new_data.scale_ = scale;
 
-            // Set the parms_id
-            parms_id_ = parms_id;
+            // Checking the validity of loaded metadata
+            // Note: We allow pure key levels here! This is to allow load_members
+            // to be used also when loading derived objects like SecretKey. This
+            // further means that functions reading in Plaintext objects must check
+            // that for those use-cases the Plaintext truly is at the data level
+            // if it is supposed to be. In other words, one cannot assume simply
+            // based on load_members succeeding that the Plaintext is valid for
+            // computations.
+            if (!is_metadata_valid_for(new_data, context, true))
+            {
+                throw logic_error("plaintext data is invalid");
+            }
 
-            // Set the scale
-            scale_ = scale;
+            // Reserve memory now that the metadata is checked for validity.
+            new_data.data_.reserve(new_data.coeff_count_);
 
-            // Set the data
-            data_.swap_with(new_data);
+            // Load the data. Note that we are supplying also the expected maximum
+            // size of the loaded IntArray. This is an important security measure to
+            // prevent a malformed IntArray from causing arbitrarily large memory
+            // allocations.
+            new_data.data_.load(stream, new_data.coeff_count_);
+
+            // Verify that the buffer is correct
+            if (!is_buffer_valid(new_data))
+            {
+                throw logic_error("plaintext data is invalid");
+            }
         }
-        catch (const exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
+
+        swap(*this, new_data);
     }
 }

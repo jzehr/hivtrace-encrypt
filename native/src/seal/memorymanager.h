@@ -7,12 +7,13 @@
 #include <stdexcept>
 #include <utility>
 #include <unordered_map>
+#include "seal/util/defines.h"
 #include "seal/util/mempool.h"
 #include "seal/util/globals.h"
 
 /*
-For .NET Framework wrapper support (C++/CLI) we need to 
-    (1) compile the MemoryManager class as thread-unsafe because C++ 
+For .NET Framework wrapper support (C++/CLI) we need to
+    (1) compile the MemoryManager class as thread-unsafe because C++
         mutexes cannot be brought through C++/CLI layer;
     (2) disable thread-safe memory pools.
 */
@@ -24,41 +25,41 @@ For .NET Framework wrapper support (C++/CLI) we need to
 namespace seal
 {
     /**
-    Manages a shared pointer to a memory pool. Microsoft SEAL uses memory pools for 
-    improved performance due to the large number of memory allocations needed
-    by the homomorphic encryption operations, and the underlying polynomial 
+    Manages a shared pointer to a memory pool. Microsoft SEAL uses memory pools
+    for improved performance due to the large number of memory allocations
+    needed by the homomorphic encryption operations, and the underlying polynomial
     arithmetic. The library automatically creates a shared global memory pool
     that is used for all dynamic allocations by default, and the user can
     optionally create any number of custom memory pools to be used instead.
-    
-    @Uses in Multi-Threaded Applications
+
+    @par Uses in Multi-Threaded Applications
     Sometimes the user might want to use specific memory pools for dynamic
     allocations in certain functions. For example, in heavily multi-threaded
-    applications allocating concurrently from a shared memory pool might lead 
+    applications allocating concurrently from a shared memory pool might lead
     to significant performance issues due to thread contention. For these cases
-    Microsoft SEAL provides overloads of the functions that take a MemoryPoolHandle as an
-    additional argument, and uses the associated memory pool for all dynamic
-    allocations inside the function. Whenever these functions are called, the 
+    Microsoft SEAL provides overloads of the functions that take a MemoryPoolHandle
+    as an additional argument, and uses the associated memory pool for all dynamic
+    allocations inside the function. Whenever these functions are called, the
     user can then simply pass a thread-local MemoryPoolHandle to be used.
-    
-    @Thread-Unsafe Memory Pools
+
+    @par Thread-Unsafe Memory Pools
     While memory pools are by default thread-safe, in some cases it suffices
     to have a memory pool be thread-unsafe. To get a little extra performance,
     the user can optionally create such thread-unsafe memory pools and use them
     just as they would use thread-safe memory pools.
 
-    @Initialized and Uninitialized Handles
+    @par Initialized and Uninitialized Handles
     A MemoryPoolHandle has to be set to point either to the global memory pool,
     or to a new memory pool. If this is not done, the MemoryPoolHandle is
     said to be uninitialized, and cannot be used. Initialization simple means
     assigning MemoryPoolHandle::Global() or MemoryPoolHandle::New() to it.
 
-    @Managing Lifetime
+    @par Managing Lifetime
     Internally, the MemoryPoolHandle wraps an std::shared_ptr pointing to
     a memory pool class. Thus, as long as a MemoryPoolHandle pointing to
     a particular memory pool exists, the pool stays alive. Classes such as
     Evaluator and Ciphertext store their own local copies of a MemoryPoolHandle
-    to guarantee that the pool stays alive as long as the managing object 
+    to guarantee that the pool stays alive as long as the managing object
     itself stays alive. The global memory pool is implemented as a global
     std::shared_ptr to a memory pool class, and is thus expected to stay
     alive for the entire duration of the program execution. Note that it can
@@ -85,7 +86,7 @@ namespace seal
 
         /**
         Creates a copy of a given MemoryPoolHandle. As a result, the created
-        MemoryPoolHandle will point to the same underlying memory pool as the 
+        MemoryPoolHandle will point to the same underlying memory pool as the
         copied instance.
 
 
@@ -97,7 +98,7 @@ namespace seal
         }
 
         /**
-        Creates a new MemoryPoolHandle by moving a given one. As a result, the 
+        Creates a new MemoryPoolHandle by moving a given one. As a result, the
         moved MemoryPoolHandle will become uninitialized.
 
 
@@ -109,11 +110,11 @@ namespace seal
         }
 
         /**
-        Overwrites the MemoryPoolHandle instance with the specified instance. As 
-        a result, the current MemoryPoolHandle will point to the same underlying 
+        Overwrites the MemoryPoolHandle instance with the specified instance. As
+        a result, the current MemoryPoolHandle will point to the same underlying
         memory pool as the assigned instance.
 
-        @param[in] assign The MemoryPoolHandle instance to assign to the current 
+        @param[in] assign The MemoryPoolHandle instance to assign to the current
         instance
         */
         inline MemoryPoolHandle &operator =(const MemoryPoolHandle &assign) noexcept
@@ -123,11 +124,11 @@ namespace seal
         }
 
         /**
-        Moves a specified MemoryPoolHandle instance to the current instance. As 
+        Moves a specified MemoryPoolHandle instance to the current instance. As
         a result, the assigned MemoryPoolHandle will become uninitialized.
 
-        @param[in] assign The MemoryPoolHandle instance to assign to the current 
-        instance 
+        @param[in] assign The MemoryPoolHandle instance to assign to the current
+        instance
         */
         inline MemoryPoolHandle &operator =(MemoryPoolHandle &&assign) noexcept
         {
@@ -138,37 +139,28 @@ namespace seal
         /**
         Returns a MemoryPoolHandle pointing to the global memory pool.
         */
-        inline static MemoryPoolHandle Global()
+        SEAL_NODISCARD inline static MemoryPoolHandle Global() noexcept
         {
-            // We return an aliased shared_ptr; a global shared_ptr can cause problems 
-            // with some wrappers.
-            return MemoryPoolHandle(
-                std::shared_ptr<util::MemoryPool>(std::shared_ptr<util::MemoryPool>(), 
-                util::global_variables::global_memory_pool.get()));
+            return util::global_variables::global_memory_pool;
         }
 #ifndef _M_CEE
         /**
-        Returns a MemoryPoolHandle pointing to the thread-local memory pool. Note
-        that the thread-local memory pool cannot be used to communicate across
-        different threads.
+        Returns a MemoryPoolHandle pointing to the thread-local memory pool.
         */
-        inline static MemoryPoolHandle ThreadLocal()
+        SEAL_NODISCARD inline static MemoryPoolHandle ThreadLocal() noexcept
         {
-            // We return an aliased shared_ptr; a global shared_ptr can cause problems 
-            // with some wrappers.
-            return MemoryPoolHandle(
-                std::shared_ptr<util::MemoryPool>(std::shared_ptr<util::MemoryPool>(), 
-                util::global_variables::tls_memory_pool.get()));
+            return util::global_variables::tls_memory_pool;
         }
 #endif
         /**
         Returns a MemoryPoolHandle pointing to a new thread-safe memory pool.
 
-        @param[in] clear_on_destruction Indicates whether the memory pool data 
-        should be cleared when destroyed. This can be important when memory pools 
+        @param[in] clear_on_destruction Indicates whether the memory pool data
+        should be cleared when destroyed. This can be important when memory pools
         are used to store private data.
         */
-        inline static MemoryPoolHandle New(bool clear_on_destruction = false) 
+        SEAL_NODISCARD inline static MemoryPoolHandle New(
+            bool clear_on_destruction = false)
         {
             return MemoryPoolHandle(
                 std::make_shared<util::MemoryPoolMT>(clear_on_destruction));
@@ -180,7 +172,7 @@ namespace seal
 
         @throws std::logic_error if the MemoryPoolHandle is uninitialized
         */
-        inline operator util::MemoryPool &() const
+        SEAL_NODISCARD inline operator util::MemoryPool &() const
         {
             if (!pool_)
             {
@@ -190,45 +182,40 @@ namespace seal
         }
 
         /**
-        Returns the number of different allocation sizes. This function returns 
-        the number of different allocation sizes the memory pool pointed to by 
-        the current MemoryPoolHandle has made. For example, if the memory pool has 
-        only allocated two allocations of sizes 128 KB, this function returns 1. 
-        If it has instead allocated one allocation of size 64 KB and one of 128 KB, 
+        Returns the number of different allocation sizes. This function returns
+        the number of different allocation sizes the memory pool pointed to by
+        the current MemoryPoolHandle has made. For example, if the memory pool has
+        only allocated two allocations of sizes 128 KB, this function returns 1.
+        If it has instead allocated one allocation of size 64 KB and one of 128 KB,
         this function returns 2.
-
-        @throws std::logic_error if the MemoryPoolHandle is uninitialized
-        */ 
-        inline std::size_t pool_count() const
+        */
+        SEAL_NODISCARD inline std::size_t pool_count() const noexcept
         {
-            if (!pool_)
-            {
-                throw std::logic_error("pool not initialized");
-            }
-            return pool_->pool_count();
+            return !pool_ ? std::size_t(0) : pool_->pool_count();
         }
 
         /**
-        Returns the size of allocated memory. This functions returns the total 
-        amount of memory (in bytes) allocated by the memory pool pointed to by 
+        Returns the size of allocated memory. This functions returns the total
+        amount of memory (in bytes) allocated by the memory pool pointed to by
         the current MemoryPoolHandle.
-
-
-        @throws std::logic_error if the MemoryPoolHandle is uninitialized
         */
-        inline std::size_t alloc_byte_count() const
+        SEAL_NODISCARD inline std::size_t alloc_byte_count() const noexcept
         {
-            if (!pool_)
-            {
-                throw std::logic_error("pool not initialized");
-            }
-            return pool_->alloc_byte_count();
+            return !pool_ ? std::size_t(0) : pool_->alloc_byte_count();
+        }
+
+        /**
+        Returns the number of MemoryPoolHandle objects sharing this memory pool.
+        */
+        SEAL_NODISCARD inline long use_count() const noexcept
+        {
+            return !pool_ ? 0 : pool_.use_count();
         }
 
         /**
         Returns whether the MemoryPoolHandle is initialized.
         */
-        inline operator bool () const
+        SEAL_NODISCARD inline operator bool () const noexcept
         {
             return pool_.operator bool();
         }
@@ -244,7 +231,7 @@ namespace seal
 
         /**
         Compares MemoryPoolHandles. This function returns whether the current
-        MemoryPoolHandle points to a different memory pool than a given 
+        MemoryPoolHandle points to a different memory pool than a given
         MemoryPoolHandle.
         */
         inline bool operator !=(const MemoryPoolHandle &compare) noexcept
@@ -259,9 +246,9 @@ namespace seal
     using mm_prof_opt_t = std::uint64_t;
 
     /**
-    Control options for MemoryManager::GetPool function. These force the MemoryManager 
-    to override the current MMProf and instead return a MemoryPoolHandle pointing 
-    to a memory pool of the indicated type. 
+    Control options for MemoryManager::GetPool function. These force the MemoryManager
+    to override the current MMProf and instead return a MemoryPoolHandle pointing
+    to a memory pool of the indicated type.
     */
     enum mm_prof_opt : mm_prof_opt_t
     {
@@ -272,12 +259,12 @@ namespace seal
     };
 
     /**
-    The MMProf is a pure virtual class that every profile for the MemoryManager 
-    should inherit from. The only functionality this class implements is the 
-    get_pool(mm_prof_opt_t) function that returns a MemoryPoolHandle pointing 
-    to a pool selected by internal logic optionally using the input parameter 
-    of type mm_prof_opt_t. The returned MemoryPoolHandle must point to a valid 
-    memory pool. 
+    The MMProf is a pure virtual class that every profile for the MemoryManager
+    should inherit from. The only functionality this class implements is the
+    get_pool(mm_prof_opt_t) function that returns a MemoryPoolHandle pointing
+    to a pool selected by internal logic optionally using the input parameter
+    of type mm_prof_opt_t. The returned MemoryPoolHandle must point to a valid
+    memory pool.
     */
     class MMProf
     {
@@ -295,9 +282,9 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle pointing to a pool selected by internal logic 
+        Returns a MemoryPoolHandle pointing to a pool selected by internal logic
         in a derived class and by the mm_prof_opt_t input parameter.
-        
+
         */
         virtual MemoryPoolHandle get_pool(mm_prof_opt_t) = 0;
 
@@ -305,7 +292,7 @@ namespace seal
     };
 
     /**
-    A memory manager profile that always returns a MemoryPoolHandle pointing to 
+    A memory manager profile that always returns a MemoryPoolHandle pointing to
     the global memory pool. Microsoft SEAL uses this memory manager profile by default.
     */
     class MMProfGlobal : public MMProf
@@ -324,11 +311,11 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle pointing to the global memory pool. The 
+        Returns a MemoryPoolHandle pointing to the global memory pool. The
         mm_prof_opt_t input parameter has no effect.
         */
-        inline virtual MemoryPoolHandle 
-            get_pool(mm_prof_opt_t) override
+        SEAL_NODISCARD inline virtual MemoryPoolHandle get_pool(
+            mm_prof_opt_t) override
         {
             return MemoryPoolHandle::Global();
         }
@@ -337,8 +324,8 @@ namespace seal
     };
 
     /**
-    A memory manager profile that always returns a MemoryPoolHandle pointing to 
-    the new thread-safe memory pool. This profile should not be used except in 
+    A memory manager profile that always returns a MemoryPoolHandle pointing to
+    the new thread-safe memory pool. This profile should not be used except in
     special circumstances, as it does not result in any reuse of allocated memory.
     */
     class MMProfNew : public MMProf
@@ -357,11 +344,11 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle pointing to a new thread-safe memory pool. The 
+        Returns a MemoryPoolHandle pointing to a new thread-safe memory pool. The
         mm_prof_opt_t input parameter has no effect.
         */
-        inline virtual MemoryPoolHandle 
-            get_pool(mm_prof_opt_t) override
+        SEAL_NODISCARD inline virtual MemoryPoolHandle get_pool(
+            mm_prof_opt_t) override
         {
             return MemoryPoolHandle::New();
         }
@@ -370,18 +357,18 @@ namespace seal
     };
 
     /**
-    A memory manager profile that always returns a MemoryPoolHandle pointing to 
+    A memory manager profile that always returns a MemoryPoolHandle pointing to
     specific memory pool.
     */
     class MMProfFixed : public MMProf
     {
     public:
         /**
-        Creates a new MMProfFixed. The MemoryPoolHandle given as argument is returned 
+        Creates a new MMProfFixed. The MemoryPoolHandle given as argument is returned
         by every call to get_pool(mm_prof_opt_t).
 
         @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if pool is uninitialized 
+        @throws std::invalid_argument if pool is uninitialized
         */
         MMProfFixed(MemoryPoolHandle pool) : pool_(std::move(pool))
         {
@@ -399,11 +386,11 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle pointing to the stored memory pool. The 
+        Returns a MemoryPoolHandle pointing to the stored memory pool. The
         mm_prof_opt_t input parameter has no effect.
         */
-        inline virtual MemoryPoolHandle
-            get_pool(mm_prof_opt_t) override
+        SEAL_NODISCARD inline virtual MemoryPoolHandle get_pool(
+            mm_prof_opt_t) override
         {
             return pool_;
         }
@@ -413,12 +400,12 @@ namespace seal
     };
 #ifndef _M_CEE
     /**
-    A memory manager profile that always returns a MemoryPoolHandle pointing to 
-    the thread-local memory pool. This profile should be used with care, as any 
-    memory allocated by it will be released once the thread exits. In other words, 
-    the thread-local memory pool cannot be used to share memory across different 
-    threads. On the other hand, this profile can be useful when a very high number 
-    of threads doing simultaneous allocations would cause contention in the 
+    A memory manager profile that always returns a MemoryPoolHandle pointing to
+    the thread-local memory pool. This profile should be used with care, as any
+    memory allocated by it will be released once the thread exits. In other words,
+    the thread-local memory pool cannot be used to share memory across different
+    threads. On the other hand, this profile can be useful when a very high number
+    of threads doing simultaneous allocations would cause contention in the
     global memory pool.
     */
     class MMProfThreadLocal : public MMProf
@@ -437,11 +424,11 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle pointing to the thread-local memory pool. The 
+        Returns a MemoryPoolHandle pointing to the thread-local memory pool. The
         mm_prof_opt_t input parameter has no effect.
         */
-        inline virtual MemoryPoolHandle 
-            get_pool(mm_prof_opt_t) override
+        SEAL_NODISCARD inline virtual MemoryPoolHandle get_pool(
+            mm_prof_opt_t) override
         {
             return MemoryPoolHandle::ThreadLocal();
         }
@@ -450,9 +437,9 @@ namespace seal
     };
 #endif
     /**
-    The MemoryManager class can be used to create instances of MemoryPoolHandle 
-    based on a given "profile". A profile is implemented by inheriting from the 
-    MMProf class (pure virtual) and encapsulates internal logic for deciding which 
+    The MemoryManager class can be used to create instances of MemoryPoolHandle
+    based on a given "profile". A profile is implemented by inheriting from the
+    MMProf class (pure virtual) and encapsulates internal logic for deciding which
     memory pool to use.
     */
     class MemoryManager
@@ -463,7 +450,7 @@ namespace seal
         MemoryManager() = delete;
 
         /**
-        Sets the current profile to a given one and returns a unique_ptr pointing 
+        Sets the current profile to a given one and returns a unique_ptr pointing
         to the previously set profile.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -479,7 +466,7 @@ namespace seal
         }
 
         /**
-        Sets the current profile to a given one and returns a unique_ptr pointing 
+        Sets the current profile to a given one and returns a unique_ptr pointing
         to the previously set profile.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -495,16 +482,15 @@ namespace seal
         }
 
         /**
-        Returns a MemoryPoolHandle according to the currently set memory manager 
-        profile and prof_opt. The following values for prof_opt have an effect 
+        Returns a MemoryPoolHandle according to the currently set memory manager
+        profile and prof_opt. The following values for prof_opt have an effect
         independent of the current profile:
-
 
             mm_prof_opt::FORCE_NEW: return MemoryPoolHandle::New()
             mm_prof_opt::FORCE_GLOBAL: return MemoryPoolHandle::Global()
             mm_prof_opt::FORCE_THREAD_LOCAL: return MemoryPoolHandle::ThreadLocal()
 
-        Other values for prof_opt are forwarded to the current profile and, depending 
+        Other values for prof_opt are forwarded to the current profile and, depending
         on the profile, may or may not have an effect. The value mm_prof_opt::DEFAULT
         will always invoke a default behavior for the current profile.
 
@@ -512,7 +498,8 @@ namespace seal
         instructions to the memory manager profile for internal logic.
         */
         template<typename... Args>
-        static inline MemoryPoolHandle GetPool(mm_prof_opt_t prof_opt, Args &&...args)
+        SEAL_NODISCARD static inline MemoryPoolHandle GetPool(
+            mm_prof_opt_t prof_opt, Args &&...args)
         {
             switch (prof_opt)
             {
@@ -540,37 +527,37 @@ namespace seal
             }
         }
 
-        static inline MemoryPoolHandle GetPool()
+        SEAL_NODISCARD static inline MemoryPoolHandle GetPool()
         {
             return GetPool(mm_prof_opt::DEFAULT);
         }
 
     private:
-        static inline std::unique_ptr<MMProf>
+        SEAL_NODISCARD static inline std::unique_ptr<MMProf>
             SwitchProfileThreadUnsafe(
                 MMProf* &&mm_prof)
         {
             if (!mm_prof)
             {
-                throw std::invalid_argument("mm_prof cannot be nullptr");
+                throw std::invalid_argument("mm_prof cannot be null");
             }
             auto ret_mm_prof = std::move(mm_prof_);
             mm_prof_.reset(mm_prof);
             return ret_mm_prof;
         }
 
-        static inline std::unique_ptr<MMProf>
+        SEAL_NODISCARD static inline std::unique_ptr<MMProf>
             SwitchProfileThreadUnsafe(
                 std::unique_ptr<MMProf> &&mm_prof)
         {
             if (!mm_prof)
             {
-                throw std::invalid_argument("mm_prof cannot be nullptr");
+                throw std::invalid_argument("mm_prof cannot be null");
             }
             std::swap(mm_prof_, mm_prof);
             return std::move(mm_prof);
         }
-        
+
         static std::unique_ptr<MMProf> mm_prof_;
 #ifndef _M_CEE
         static std::mutex switch_mutex_;
@@ -578,21 +565,21 @@ namespace seal
     };
 #ifndef _M_CEE
     /**
-    Class for a scoped switch of memory manager profile. This class acts as a scoped 
-    "guard" for changing the memory manager profile so that the programmer does 
-    not have to explicitly switch back afterwards and that other threads cannot 
-    change the MMProf. It can also help with exception safety by guaranteeing that 
-    the profile is switched back to the original if a function throws an exception 
+    Class for a scoped switch of memory manager profile. This class acts as a scoped
+    "guard" for changing the memory manager profile so that the programmer does
+    not have to explicitly switch back afterwards and that other threads cannot
+    change the MMProf. It can also help with exception safety by guaranteeing that
+    the profile is switched back to the original if a function throws an exception
     after changing the profile for local use.
     */
     class MMProfGuard
     {
     public:
         /**
-        Creates a new MMProfGuard. If start_locked is true, this function will 
-        attempt to lock the MemoryManager for profile switch to mm_prof, perform 
-        the switch, and keep the lock until unlocked or destroyed. If start_lock 
-        is false, mm_prof will be stored but the switch will not be performed and 
+        Creates a new MMProfGuard. If start_locked is true, this function will
+        attempt to lock the MemoryManager for profile switch to mm_prof, perform
+        the switch, and keep the lock until unlocked or destroyed. If start_lock
+        is false, mm_prof will be stored but the switch will not be performed and
         a lock will not be obtained until lock() is explicitly called.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -601,7 +588,7 @@ namespace seal
         */
         MMProfGuard(std::unique_ptr<MMProf> &&mm_prof,
             bool start_locked = true) noexcept :
-            mm_switch_lock_(MemoryManager::switch_mutex_,std::defer_lock)
+            mm_switch_lock_(MemoryManager::switch_mutex_, std::defer_lock)
         {
             if (start_locked)
             {
@@ -614,10 +601,10 @@ namespace seal
         }
 
         /**
-        Creates a new MMProfGuard. If start_locked is true, this function will 
-        attempt to lock the MemoryManager for profile switch to mm_prof, perform 
-        the switch, and keep the lock until unlocked or destroyed. If start_lock 
-        is false, mm_prof will be stored but the switch will not be performed and 
+        Creates a new MMProfGuard. If start_locked is true, this function will
+        attempt to lock the MemoryManager for profile switch to mm_prof, perform
+        the switch, and keep the lock until unlocked or destroyed. If start_lock
+        is false, mm_prof will be stored but the switch will not be performed and
         a lock will not be obtained until lock() is explicitly called.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -639,9 +626,9 @@ namespace seal
         }
 
         /**
-        Attempts to lock the MemoryManager for profile switch, perform the switch 
-        to currently stored memory manager profile, store the previously held profile, 
-        and keep the lock until unlocked or destroyed. If the lock cannot be obtained 
+        Attempts to lock the MemoryManager for profile switch, perform the switch
+        to currently stored memory manager profile, store the previously held profile,
+        and keep the lock until unlocked or destroyed. If the lock cannot be obtained
         on the first attempt, the function returns false; otherwise returns true.
 
         @throws std::runtime_error if the lock is already owned
@@ -662,13 +649,16 @@ namespace seal
         }
 
         /**
-        Locks the MemoryManager for profile switch, performs the switch to currently 
-        stored memory manager profile, stores the previously held profile, and 
-        keep the lock until unlocked or destroyed. The calling thread will block 
+        Locks the MemoryManager for profile switch, performs the switch to currently
+        stored memory manager profile, stores the previously held profile, and
+        keep the lock until unlocked or destroyed. The calling thread will block
         until the lock can be obtained.
 
         @throws std::runtime_error if the lock is already owned
         */
+#ifdef _MSC_VER
+        _Acquires_lock_(mm_switch_lock_)
+#endif
         inline void lock()
         {
             if (mm_switch_lock_.owns_lock())
@@ -681,10 +671,10 @@ namespace seal
         }
 
         /**
-        Attempts to lock the MemoryManager for profile switch, perform the switch 
-        to the given memory manager profile, store the previously held profile, 
-        and keep the lock until unlocked or destroyed. If the lock cannot be 
-        obtained on the first attempt, the function returns false; otherwise 
+        Attempts to lock the MemoryManager for profile switch, perform the switch
+        to the given memory manager profile, store the previously held profile,
+        and keep the lock until unlocked or destroyed. If the lock cannot be
+        obtained on the first attempt, the function returns false; otherwise
         returns true.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -707,14 +697,17 @@ namespace seal
         }
 
         /**
-        Locks the MemoryManager for profile switch, performs the switch to the given 
-        memory manager profile, stores the previously held profile, and keep the 
-        lock until unlocked or destroyed. The calling thread will block until the 
+        Locks the MemoryManager for profile switch, performs the switch to the given
+        memory manager profile, stores the previously held profile, and keep the
+        lock until unlocked or destroyed. The calling thread will block until the
         lock can be obtained.
 
         @param[in] mm_prof Pointer to a new memory manager profile
         @throws std::runtime_error if the lock is already owned
         */
+#ifdef _MSC_VER
+        _Acquires_lock_(mm_switch_lock_)
+#endif
         inline void lock(
             std::unique_ptr<MMProf> &&mm_prof)
         {
@@ -728,10 +721,10 @@ namespace seal
         }
 
         /**
-        Attempts to lock the MemoryManager for profile switch, perform the switch 
-        to the given memory manager profile, store the previously held profile, 
-        and keep the lock until unlocked or destroyed. If the lock cannot be 
-        obtained on the first attempt, the function returns false; otherwise returns 
+        Attempts to lock the MemoryManager for profile switch, perform the switch
+        to the given memory manager profile, store the previously held profile,
+        and keep the lock until unlocked or destroyed. If the lock cannot be
+        obtained on the first attempt, the function returns false; otherwise returns
         true.
 
         @param[in] mm_prof Pointer to a new memory manager profile
@@ -753,14 +746,17 @@ namespace seal
         }
 
         /**
-        Locks the MemoryManager for profile switch, performs the switch to the 
-        given memory manager profile, stores the previously held profile, and keep 
-        the lock until unlocked or destroyed. The calling thread will block until 
+        Locks the MemoryManager for profile switch, performs the switch to the
+        given memory manager profile, stores the previously held profile, and keep
+        the lock until unlocked or destroyed. The calling thread will block until
         the lock can be obtained.
 
         @param[in] mm_prof Pointer to a new memory manager profile
         @throws std::runtime_error if the lock is already owned
         */
+#ifdef _MSC_VER
+        _Acquires_lock_(mm_switch_lock_)
+#endif
         inline void lock(MMProf* &&mm_prof)
         {
             if (mm_switch_lock_.owns_lock())
@@ -773,11 +769,14 @@ namespace seal
         }
 
         /**
-        Releases the memory manager profile switch lock for MemoryManager, stores 
+        Releases the memory manager profile switch lock for MemoryManager, stores
         the current profile, and resets the profile to the one used before locking.
 
-        @throw std::runtime_error if the lock is not owned
+        @throws std::runtime_error if the lock is not owned
         */
+#ifdef _MSC_VER
+        _Releases_lock_(mm_switch_lock_)
+#endif
         inline void unlock()
         {
             if (!mm_switch_lock_.owns_lock())
@@ -790,8 +789,8 @@ namespace seal
         }
 
         /**
-        Destroys the MMProfGuard. If the memory manager profile switch lock is 
-        owned, releases the lock, and resets the profile to the one used before 
+        Destroys the MMProfGuard. If the memory manager profile switch lock is
+        owned, releases the lock, and resets the profile to the one used before
         locking.
         */
         ~MMProfGuard()
@@ -805,7 +804,7 @@ namespace seal
         }
 
         /**
-        Returns whether the current MMProfGuard owns the memory manager profile 
+        Returns whether the current MMProfGuard owns the memory manager profile
         switch lock.
         */
         inline bool owns_lock() noexcept

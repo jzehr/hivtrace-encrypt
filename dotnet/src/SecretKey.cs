@@ -4,6 +4,7 @@
 using Microsoft.Research.SEAL.Tools;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Research.SEAL
 {
@@ -13,8 +14,8 @@ namespace Microsoft.Research.SEAL
     /// <remarks>
     /// <para>
     /// Thread Safety
-    /// In general, reading from SecretKey is thread-safe as long as no other 
-    /// thread is concurrently mutating it. This is due to the underlying data 
+    /// In general, reading from SecretKey is thread-safe as long as no other
+    /// thread is concurrently mutating it. This is due to the underlying data
     /// structure storing the secret key not being thread-safe.
     /// </para>
     /// </remarks>
@@ -34,6 +35,16 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
+        /// Creates a new SecretKey by initializing it with a pointer to a native object.
+        /// </summary>
+        /// <param name="secretKeyPtr">The native SecretKey pointer</param>
+        /// <param name="owned">Whether this instance owns the native pointer</param>
+        internal SecretKey(IntPtr secretKeyPtr, bool owned = true)
+            : base(secretKeyPtr, owned)
+        {
+        }
+
+        /// <summary>
         /// Creates a new SecretKey by copying an old one.
         /// </summary>
         /// <param name="copy">The SecretKey to copy from</param>
@@ -45,16 +56,6 @@ namespace Microsoft.Research.SEAL
 
             NativeMethods.SecretKey_Create(copy.NativePtr, out IntPtr ptr);
             NativePtr = ptr;
-        }
-
-        /// <summary>
-        /// Creates a new SecretKey by initializing it with a pointer to a native object.
-        /// </summary>
-        /// <param name="secretKeyPtr">The native SecretKey pointer</param>
-        /// <param name="owned">Whether this instance owns the native pointer</param>
-        internal SecretKey(IntPtr secretKeyPtr, bool owned = true)
-            : base(secretKeyPtr, owned)
-        {
         }
 
         /// <summary>
@@ -71,8 +72,12 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Returns a copy of the underlying Plaintext.
+        /// Returns the underlying Plaintext.
         /// </summary>
+        /// <remarks>
+        /// Returns the underlying Plaintext. The returned Plaintext is valid
+        /// only as long as the SecretKey is valid and not changed.
+        /// </remarks>
         public Plaintext Data
         {
             get
@@ -84,104 +89,115 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Check whether the current SecretKey is valid for a given SEALContext. If 
-        /// the given SEALContext is not set, the encryption parameters are invalid, 
-        /// or the SecretKey data does not match the SEALContext, this function returns 
-        /// false. Otherwise, returns true.
+        /// Returns an upper bound on the size of the SecretKey, as if it was written
+        /// to an output stream.
         /// </summary>
-        /// <param name="context">The SEALContext</param>
-        /// <exception cref="ArgumentNullException">if context is null</exception>
-        public bool IsValidFor(SEALContext context)
+        /// <param name="comprMode">The compression mode</param>
+        /// <exception cref="ArgumentException">if the compression mode is not
+        /// supported</exception>
+        /// <exception cref="InvalidOperationException">if the size does not fit in
+        /// the return type</exception>
+        public long SaveSize(ComprModeType comprMode)
         {
-            if (null == context)
-                throw new ArgumentNullException(nameof(context));
-
-            NativeMethods.SecretKey_IsValidFor(NativePtr, context.NativePtr, out bool result);
-            return result;
+            NativeMethods.SecretKey_SaveSize(
+                NativePtr, (byte)comprMode, out long outBytes);
+            return outBytes;
         }
 
-        /// <summary>
-        /// Check whether the current SecretKey is valid for a given SEALContext. If 
-        /// the given SEALContext is not set, the encryption parameters are invalid, 
-        /// or the SecretKey data does not match the SEALContext, this function returns
-        /// false. Otherwise, returns true. This function only checks the metadata
-        /// and not the secret key data itself.
-        /// </summary>
-        /// <param name="context">The SEALContext</param>
-        /// <exception cref="ArgumentNullException">if context is null</exception>
-        public bool IsMetadataValidFor(SEALContext context)
-        {
-            if (null == context)
-                throw new ArgumentNullException(nameof(context));
-
-            NativeMethods.SecretKey_IsMetadataValidFor(NativePtr, context.NativePtr, out bool result);
-            return result;
-        }
-
-        /// <summary>
-        /// Saves the SecretKey to an output stream.
-        /// </summary>
-        /// 
+        /// <summary>Saves the SecretKey to an output stream.</summary>
         /// <remarks>
-        /// Saves the SecretKey to an output stream. The output is in binary format and 
-        /// not human-readable. The output stream must have the "binary" flag set.
+        /// Saves the SecretKey to an output stream. The output is in binary format
+        /// and not human-readable.
         /// </remarks>
         /// <param name="stream">The stream to save the SecretKey to</param>
+        /// <param name="comprMode">The desired compression mode</param>
         /// <exception cref="ArgumentNullException">if stream is null</exception>
-        public void Save(Stream stream)
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support writing</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the data to be saved
+        /// is invalid, if compression mode is not supported, or if compression
+        /// failed</exception>
+        public long Save(Stream stream, ComprModeType? comprMode = null)
         {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
+            comprMode = comprMode ?? Serialization.ComprModeDefault;
+            if (!Serialization.IsSupportedComprMode(comprMode.Value))
+                throw new InvalidOperationException("Unsupported compression mode");
 
-            Data.Save(stream);
+            ComprModeType comprModeValue = comprMode.Value;
+            return Serialization.Save(
+                (byte[] outptr, ulong size, byte cm, out long outBytes) =>
+                    NativeMethods.SecretKey_Save(NativePtr, outptr, size,
+                    cm, out outBytes),
+                SaveSize(comprModeValue), comprModeValue, stream);
         }
 
-        /// <summary>
+        /// <summary>Loads a SecretKey from an input stream overwriting the current
+        /// SecretKey.</summary>
+        /// <remarks>
         /// Loads a SecretKey from an input stream overwriting the current SecretKey.
         /// No checking of the validity of the SecretKey data against encryption
-        /// parameters is performed. This function should not be used unless the 
+        /// parameters is performed. This function should not be used unless the
         /// SecretKey comes from a fully trusted source.
-        /// </summary>
-        /// <param name="stream">The stream to load the SecretKey from</param>
-        /// <exception cref="ArgumentNullException">if stream is null</exception>
-        /// <exception cref="ArgumentException">if a valid SecretKey could not be read from stream</exception>
-        public void UnsafeLoad(Stream stream)
-        {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
-
-            Data.UnsafeLoad(stream);
-        }
-
-        /// <summary>
-        /// Loads a SecretKey from an input stream overwriting the current SecretKey.
-        /// The loaded SecretKey is verified to be valid for the given SEALContext.
-        /// </summary>
-        /// 
+        /// </remarks>
         /// <param name="context">The SEALContext</param>
         /// <param name="stream">The stream to load the SecretKey from</param>
-        /// <exception cref="ArgumentNullException">if stream is null</exception>
-        /// <exception cref="ArgumentException">if the context is not set or encryption
+        /// <exception cref="ArgumentNullException">if context or stream is
+        /// null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support reading</exception>
+        /// <exception cref="ArgumentException">if context is not set or encryption
         /// parameters are not valid</exception>
-        /// <exception cref="ArgumentException">if the loaded SecretKey is invalid or is
-        /// invalid for the context</exception>
-        public void Load(SEALContext context, Stream stream)
+        /// <exception cref="EndOfStreamException">if the stream ended
+        /// unexpectedly</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the loaded data is invalid
+        /// or if the loaded compression mode is not supported</exception>
+        public long UnsafeLoad(SEALContext context, Stream stream)
         {
             if (null == context)
                 throw new ArgumentNullException(nameof(context));
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
 
-            UnsafeLoad(stream);
+            return Serialization.Load(
+                (byte[] outptr, ulong size, out long outBytes) =>
+                    NativeMethods.SecretKey_UnsafeLoad(NativePtr, context.NativePtr,
+                    outptr, size, out outBytes),
+                stream);
+        }
 
-            if (!IsValidFor(context))
-            {
-                throw new ArgumentException("SecretKey data is invalid for context");
-            }
+        /// <summary>Loads a SecretKey from an input stream overwriting the current
+        /// SecretKey.</summary>
+        /// <remarks>
+        /// Loads a SecretKey from an input stream overwriting the current SecretKey.
+        /// The loaded SecretKey is verified to be valid for the given SEALContext.
+        /// </remarks>
+        /// <param name="context">The SEALContext</param>
+        /// <param name="stream">The stream to load the SecretKey from</param>
+        /// <exception cref="ArgumentNullException">if context or stream is
+        /// null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support reading</exception>
+        /// <exception cref="ArgumentException">if context is not set or encryption
+        /// parameters are not valid</exception>
+        /// <exception cref="EndOfStreamException">if the stream ended
+        /// unexpectedly</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the loaded data is invalid
+        /// or if the loaded compression mode is not supported</exception>
+        public long Load(SEALContext context, Stream stream)
+        {
+            if (null == context)
+                throw new ArgumentNullException(nameof(context));
+
+            return Serialization.Load(
+                (byte[] outptr, ulong size, out long outBytes) =>
+                    NativeMethods.SecretKey_Load(NativePtr, context.NativePtr,
+                    outptr, size, out outBytes),
+                stream);
         }
 
         /// <summary>
-        /// Returns a reference to parmsId.
+        /// Returns a copy of ParmsId.
         /// </summary>
         public ParmsId ParmsId
         {

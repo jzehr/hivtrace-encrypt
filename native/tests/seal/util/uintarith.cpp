@@ -47,7 +47,7 @@ namespace SEALTest
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 #elif SEAL_COMPILER == SEAL_COMPILER_CLANG
-#pragma clang optimize off 
+#pragma clang optimize off
 #endif
 
         TEST(UIntArith, AddUInt64)
@@ -595,9 +595,6 @@ namespace SEALTest
             left_shift_uint(ptr.get(), 127, 2, ptr2.get());
             ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
             ASSERT_EQ(static_cast<uint64_t>(0x8000000000000000), ptr2[1]);
-            left_shift_uint(ptr.get(), 128, 2, ptr2.get());
-            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
-            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
 
             left_shift_uint(ptr.get(), 2, 2, ptr.get());
             ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[0]);
@@ -605,6 +602,129 @@ namespace SEALTest
             left_shift_uint(ptr.get(), 64, 2, ptr.get());
             ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
             ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[1]);
+        }
+
+        TEST(UIntArith, LeftShiftUInt128)
+        {
+            MemoryPool &pool = *global_variables::global_memory_pool;
+            auto ptr(allocate_uint(2, pool));
+            auto ptr2(allocate_uint(2, pool));
+            ptr[0] = 0;
+            ptr[1] = 0;
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            left_shift_uint128(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            left_shift_uint128(ptr.get(), 10, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            left_shift_uint128(ptr.get(), 10, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+
+            ptr[0] = 0x5555555555555555;
+            ptr[1] = 0xAAAAAAAAAAAAAAAA;
+            left_shift_uint128(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            left_shift_uint128(ptr.get(), 0, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr[1]);
+            left_shift_uint128(ptr.get(), 1, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr2[1]);
+            left_shift_uint128(ptr.get(), 2, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAA9), ptr2[1]);
+            left_shift_uint128(ptr.get(), 64, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[1]);
+            left_shift_uint128(ptr.get(), 65, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            left_shift_uint128(ptr.get(), 127, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x8000000000000000), ptr2[1]);
+
+            left_shift_uint128(ptr.get(), 2, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAA9), ptr[1]);
+            left_shift_uint128(ptr.get(), 64, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[1]);
+        }
+
+        TEST(UIntArith, LeftShiftUInt192)
+        {
+            MemoryPool &pool = *global_variables::global_memory_pool;
+            auto ptr(allocate_uint(3, pool));
+            auto ptr2(allocate_uint(3, pool));
+            ptr[0] = 0;
+            ptr[1] = 0;
+            ptr[2] = 0;
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[2] = 0xFFFFFFFFFFFFFFFF;
+            left_shift_uint192(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[2] = 0xFFFFFFFFFFFFFFFF;
+            left_shift_uint192(ptr.get(), 10, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            left_shift_uint192(ptr.get(), 10, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[2]);
+
+            ptr[0] = 0x5555555555555555;
+            ptr[1] = 0xAAAAAAAAAAAAAAAA;
+            ptr[2] = 0xCDCDCDCDCDCDCDCD;
+            left_shift_uint192(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xCDCDCDCDCDCDCDCD), ptr2[2]);
+            left_shift_uint192(ptr.get(), 0, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xCDCDCDCDCDCDCDCD), ptr[2]);
+            left_shift_uint192(ptr.get(), 1, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x9B9B9B9B9B9B9B9B), ptr2[2]);
+            left_shift_uint192(ptr.get(), 2, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAA9), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x3737373737373736), ptr2[2]);
+            left_shift_uint192(ptr.get(), 64, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[2]);
+            left_shift_uint192(ptr.get(), 65, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr2[2]);
+            left_shift_uint192(ptr.get(), 191, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x8000000000000000), ptr2[2]);
+
+            left_shift_uint192(ptr.get(), 2, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAA9), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x3737373737373736), ptr[2]);
+
+            left_shift_uint192(ptr.get(), 64, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555554), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAA9), ptr[2]);
         }
 
         TEST(UIntArith, RightShiftUInt)
@@ -651,9 +771,6 @@ namespace SEALTest
             right_shift_uint(ptr.get(), 127, 2, ptr2.get());
             ASSERT_EQ(1ULL, ptr2[0]);
             ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
-            right_shift_uint(ptr.get(), 128, 2, ptr2.get());
-            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
-            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
 
             right_shift_uint(ptr.get(), 2, 2, ptr.get());
             ASSERT_EQ(static_cast<uint64_t>(0x9555555555555555), ptr[0]);
@@ -661,6 +778,129 @@ namespace SEALTest
             right_shift_uint(ptr.get(), 64, 2, ptr.get());
             ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr[0]);
             ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+        }
+
+        TEST(UIntArith, RightShiftUInt128)
+        {
+            MemoryPool &pool = *global_variables::global_memory_pool;
+            auto ptr(allocate_uint(2, pool));
+            auto ptr2(allocate_uint(2, pool));
+            ptr[0] = 0;
+            ptr[1] = 0;
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            right_shift_uint128(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            right_shift_uint128(ptr.get(), 10, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            right_shift_uint128(ptr.get(), 10, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+
+            ptr[0] = 0x5555555555555555;
+            ptr[1] = 0xAAAAAAAAAAAAAAAA;
+            right_shift_uint128(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            right_shift_uint128(ptr.get(), 0, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr[1]);
+            right_shift_uint128(ptr.get(), 1, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[1]);
+            right_shift_uint128(ptr.get(), 2, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x9555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr2[1]);
+            right_shift_uint128(ptr.get(), 64, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            right_shift_uint128(ptr.get(), 65, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            right_shift_uint128(ptr.get(), 127, ptr2.get());
+            ASSERT_EQ(1ULL, ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+
+            right_shift_uint128(ptr.get(), 2, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x9555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr[1]);
+            right_shift_uint128(ptr.get(), 64, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+        }
+
+        TEST(UIntArith, RightShiftUInt192)
+        {
+            MemoryPool &pool = *global_variables::global_memory_pool;
+            auto ptr(allocate_uint(3, pool));
+            auto ptr2(allocate_uint(3, pool));
+            ptr[0] = 0;
+            ptr[1] = 0;
+            ptr[2] = 0;
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[2] = 0xFFFFFFFFFFFFFFFF;
+            right_shift_uint192(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            ptr2[0] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[1] = 0xFFFFFFFFFFFFFFFF;
+            ptr2[2] = 0xFFFFFFFFFFFFFFFF;
+            right_shift_uint192(ptr.get(), 10, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            right_shift_uint192(ptr.get(), 10, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[2]);
+
+            ptr[0] = 0x5555555555555555;
+            ptr[1] = 0xAAAAAAAAAAAAAAAA;
+            ptr[2] = 0xCDCDCDCDCDCDCDCD;
+
+            right_shift_uint192(ptr.get(), 0, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xCDCDCDCDCDCDCDCD), ptr2[2]);
+            right_shift_uint192(ptr.get(), 0, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x5555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0xCDCDCDCDCDCDCDCD), ptr[2]);
+            right_shift_uint192(ptr.get(), 1, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x2AAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xD555555555555555), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x66E6E6E6E6E6E6E6), ptr2[2]);
+            right_shift_uint192(ptr.get(), 2, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x9555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x6AAAAAAAAAAAAAAA), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x3373737373737373), ptr2[2]);
+            right_shift_uint192(ptr.get(), 64, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0xAAAAAAAAAAAAAAAA), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0xCDCDCDCDCDCDCDCD), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            right_shift_uint192(ptr.get(), 65, ptr2.get());
+            ASSERT_EQ(static_cast<uint64_t>(0xD555555555555555), ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x66E6E6E6E6E6E6E6), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+            right_shift_uint192(ptr.get(), 191, ptr2.get());
+            ASSERT_EQ(1ULL, ptr2[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr2[2]);
+
+            right_shift_uint192(ptr.get(), 2, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x9555555555555555), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x6AAAAAAAAAAAAAAA), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0x3373737373737373), ptr[2]);
+            right_shift_uint192(ptr.get(), 64, ptr.get());
+            ASSERT_EQ(static_cast<uint64_t>(0x6AAAAAAAAAAAAAAA), ptr[0]);
+            ASSERT_EQ(static_cast<uint64_t>(0x3373737373737373), ptr[1]);
+            ASSERT_EQ(static_cast<uint64_t>(0), ptr[2]);
         }
 
         TEST(UIntArith, HalfRoundUpUInt)
@@ -932,7 +1172,7 @@ namespace SEALTest
             ASSERT_EQ(0ULL, result);
             multiply_uint64_hw64(1ULL, 1ULL, &result);
             ASSERT_EQ(0ULL, result);
-            multiply_uint64_hw64(0x100000000ULL, 0xFAFABABAUL, &result);
+            multiply_uint64_hw64(0x100000000ULL, 0xFAFABABAULL, &result);
             ASSERT_EQ(0ULL, result);
             multiply_uint64_hw64(0x1000000000ULL, 0xFAFABABAULL, &result);
             ASSERT_EQ(0xFULL, result);
@@ -1339,7 +1579,7 @@ namespace SEALTest
             result[4] = 5, result[5] = 6, result[6] = 7, result[7] = 8;
 
             uint64_t exponent[2]{ 0, 0 };
-            
+
             input[0] = 0xFFF;
             input[1] = 0;
             exponentiate_uint(input.get(), 2, exponent, 1, 1, result.get(), pool);

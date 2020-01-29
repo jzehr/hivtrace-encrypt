@@ -20,19 +20,18 @@ namespace seal
     */
     struct Ciphertext::CiphertextPrivateHelper
     {
-        static void resize(seal::Ciphertext *ciphertext, size_t size, size_t poly_modulus_degree,
+        static void resize(Ciphertext *ciphertext, size_t size, size_t poly_modulus_degree,
             size_t coeff_mod_count)
         {
             ciphertext->resize_internal(size, poly_modulus_degree, coeff_mod_count);
         }
 
-        static void set_ntt_form(seal::Ciphertext *ciphertext, bool is_ntt_form)
+        static void set_ntt_form(Ciphertext *ciphertext, bool is_ntt_form)
         {
             ciphertext->is_ntt_form_ = is_ntt_form;
         }
     };
 }
-
 
 SEALNETNATIVE HRESULT SEALCALL Ciphertext_Create1(void *memoryPoolHandle, void **ciphertext)
 {
@@ -200,26 +199,6 @@ SEALNETNATIVE HRESULT SEALCALL Ciphertext_Destroy(void *thisptr)
     IfNullRet(cipher, E_POINTER);
 
     delete cipher;
-    return S_OK;
-}
-
-SEALNETNATIVE HRESULT SEALCALL Ciphertext_UInt64Count(void *thisptr, uint64_t *uint64_count)
-{
-    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
-    IfNullRet(cipher, E_POINTER);
-    IfNullRet(uint64_count, E_POINTER);
-
-    *uint64_count = cipher->uint64_count();
-    return S_OK;
-}
-
-SEALNETNATIVE HRESULT SEALCALL Ciphertext_UInt64CountCapacity(void *thisptr, uint64_t *uint64_count_capacity)
-{
-    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
-    IfNullRet(cipher, E_POINTER);
-    IfNullRet(uint64_count_capacity, E_POINTER);
-
-    *uint64_count_capacity = cipher->uint64_count_capacity();
     return S_OK;
 }
 
@@ -460,30 +439,6 @@ SEALNETNATIVE HRESULT SEALCALL Ciphertext_Release(void *thisptr)
     return S_OK;
 }
 
-SEALNETNATIVE HRESULT SEALCALL Ciphertext_IsValidFor(void *thisptr, void *context, bool *result)
-{
-    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
-    IfNullRet(cipher, E_POINTER);
-    const auto &sharedctx = SharedContextFromVoid(context);
-    IfNullRet(sharedctx.get(), E_POINTER);
-    IfNullRet(result, E_POINTER);
-
-    *result = cipher->is_valid_for(sharedctx);
-    return S_OK;
-}
-
-SEALNETNATIVE HRESULT SEALCALL Ciphertext_IsMetadataValidFor(void *thisptr, void *context, bool *result)
-{
-    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
-    IfNullRet(cipher, E_POINTER);
-    const auto &sharedctx = SharedContextFromVoid(context);
-    IfNullRet(sharedctx.get(), E_POINTER);
-    IfNullRet(result, E_POINTER);
-
-    *result = cipher->is_metadata_valid_for(sharedctx);
-    return S_OK;
-}
-
 SEALNETNATIVE HRESULT SEALCALL Ciphertext_IsTransparent(void *thisptr, bool *result)
 {
     Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
@@ -503,4 +458,117 @@ SEALNETNATIVE HRESULT SEALCALL Ciphertext_Pool(void *thisptr, void **pool)
     MemoryPoolHandle *handleptr = new MemoryPoolHandle(cipher->pool());
     *pool = handleptr;
     return S_OK;
+}
+
+SEALNETNATIVE HRESULT SEALCALL Ciphertext_SaveSize(void *thisptr, uint8_t compr_mode, int64_t *result)
+{
+    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
+    IfNullRet(cipher, E_POINTER);
+    IfNullRet(result, E_POINTER);
+
+    try
+    {
+        *result = static_cast<int64_t>(
+            cipher->save_size(static_cast<compr_mode_type>(compr_mode)));
+        return S_OK;
+    }
+    catch (const invalid_argument &)
+    {
+        return E_INVALIDARG;
+    }
+    catch (const logic_error &)
+    {
+        return COR_E_INVALIDOPERATION;
+    }
+}
+
+SEALNETNATIVE HRESULT SEALCALL Ciphertext_Save(void *thisptr, uint8_t *outptr, uint64_t size, uint8_t compr_mode, int64_t *out_bytes)
+{
+    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
+    IfNullRet(cipher, E_POINTER);
+    IfNullRet(outptr, E_POINTER);
+    IfNullRet(out_bytes, E_POINTER);
+
+    try
+    {
+        *out_bytes = util::safe_cast<int64_t>(cipher->save(
+            reinterpret_cast<SEAL_BYTE *>(outptr),
+            util::safe_cast<size_t>(size),
+            static_cast<compr_mode_type>(compr_mode)));
+        return S_OK;
+    }
+    catch (const invalid_argument &)
+    {
+        return E_INVALIDARG;
+    }
+    catch (const logic_error &)
+    {
+        return COR_E_INVALIDOPERATION;
+    }
+    catch (const runtime_error &)
+    {
+        return COR_E_IO;
+    }
+}
+
+SEALNETNATIVE HRESULT SEALCALL Ciphertext_UnsafeLoad(void *thisptr, void *context, uint8_t *inptr, uint64_t size, int64_t *in_bytes)
+{
+    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
+    IfNullRet(cipher, E_POINTER);
+    const auto &sharedctx = SharedContextFromVoid(context);
+    IfNullRet(sharedctx.get(), E_POINTER);
+    IfNullRet(inptr, E_POINTER);
+    IfNullRet(in_bytes, E_POINTER);
+
+    try
+    {
+        *in_bytes = util::safe_cast<int64_t>(cipher->unsafe_load(
+            sharedctx,
+            reinterpret_cast<SEAL_BYTE *>(inptr),
+            util::safe_cast<size_t>(size)));
+        return S_OK;
+    }
+    catch (const invalid_argument &)
+    {
+        return E_INVALIDARG;
+    }
+    catch (const logic_error &)
+    {
+        return COR_E_INVALIDOPERATION;
+    }
+    catch (const runtime_error &)
+    {
+        return COR_E_IO;
+    }
+}
+
+SEALNETNATIVE HRESULT SEALCALL Ciphertext_Load(void *thisptr, void *context, uint8_t *inptr, uint64_t size, int64_t *in_bytes)
+{
+    Ciphertext *cipher = FromVoid<Ciphertext>(thisptr);
+    IfNullRet(cipher, E_POINTER);
+    const auto &sharedctx = SharedContextFromVoid(context);
+    IfNullRet(sharedctx.get(), E_POINTER);
+    IfNullRet(inptr, E_POINTER);
+    IfNullRet(in_bytes, E_POINTER);
+
+    try
+    {
+        *in_bytes = util::safe_cast<int64_t>(cipher->load(
+            sharedctx,
+            reinterpret_cast<SEAL_BYTE *>(inptr),
+            util::safe_cast<size_t>(size)));
+        return S_OK;
+    }
+    catch (const invalid_argument &)
+    {
+        return E_INVALIDARG;
+    }
+    catch (const logic_error &)
+    {
+        return COR_E_INVALIDOPERATION;
+    }
+    catch (const runtime_error &)
+    {
+        return COR_E_IO;
+    }
 }

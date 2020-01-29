@@ -44,7 +44,7 @@ namespace seal
         {
             throw invalid_argument("value must be non-null for non-zero bit count");
         }
-    } 
+    }
 #ifdef SEAL_USE_MSGSL_SPAN
     BigUInt::BigUInt(gsl::span<uint64_t> value)
     {
@@ -131,7 +131,7 @@ namespace seal
         decltype(value_) new_value;
         if (new_uint64_count > 0)
         {
-            new_value.swap_with(allocate_uint(new_uint64_count, pool_));
+            new_value = allocate_uint(new_uint64_count, pool_);
         }
 
         // Copy over old value.
@@ -145,7 +145,7 @@ namespace seal
         reset();
 
         // Update class.
-        value_.swap_with(new_value);
+        swap(value_, new_value);
         bit_count_ = bit_count;
     }
 
@@ -170,7 +170,7 @@ namespace seal
             divide_round_up(assign_sig_bit_count, bits_per_uint64));
         if (uint64_count() > 0)
         {
-            set_uint_uint(assign.value_.get(), assign_uint64_count, 
+            set_uint_uint(assign.value_.get(), assign_uint64_count,
                 uint64_count(), value_.get());
         }
         return *this;
@@ -214,12 +214,12 @@ namespace seal
         {
             BigUInt operand2resized(result_bits);
             operand2resized = operand2;
-            divide_uint_uint(value_.get(), operand2resized.data(), result_uint64_count, 
+            divide_uint_uint(value_.get(), operand2resized.data(), result_uint64_count,
                 result.data(), remainder.data(), pool_);
         }
         else
         {
-            divide_uint_uint(value_.get(), operand2.data(), result_uint64_count, 
+            divide_uint_uint(value_.get(), operand2.data(), result_uint64_count,
                 result.data(), remainder.data(), pool_);
         }
         return result;
@@ -241,18 +241,18 @@ namespace seal
         {
             BigUInt operand2resized(result_bits);
             operand2resized = operand2;
-            divide_uint_uint_inplace(remainder.data(), operand2resized.data(), 
+            divide_uint_uint_inplace(remainder.data(), operand2resized.data(),
                 uint64_count, quotient.data(), pool_);
         }
         else
         {
-            divide_uint_uint_inplace(remainder.data(), operand2.data(), 
+            divide_uint_uint_inplace(remainder.data(), operand2.data(),
                 uint64_count, quotient.data(), pool_);
         }
         return quotient;
     }
 
-    void BigUInt::save(ostream &stream) const
+    void BigUInt::save_members(ostream &stream) const
     {
         auto old_except_mask = stream.exceptions();
         try
@@ -263,18 +263,25 @@ namespace seal
             int32_t bit_count32 = safe_cast<int32_t>(bit_count_);
             streamsize data_size = safe_cast<streamsize>(mul_safe(uint64_count(), sizeof(uint64_t)));
             stream.write(reinterpret_cast<const char*>(&bit_count32), sizeof(int32_t));
-            stream.write(reinterpret_cast<const char*>(value_.get()), data_size);
+            if (data_size)
+            {
+                stream.write(reinterpret_cast<const char*>(value_.get()), data_size);
+            }
         }
-        catch (const exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
     }
 
-    void BigUInt::load(istream &stream)
+    void BigUInt::load_members(istream &stream)
     {
         auto old_except_mask = stream.exceptions();
         try
@@ -289,10 +296,15 @@ namespace seal
                 // Size is too large to currently fit, so resize.
                 resize(read_bit_count);
             }
+
             size_t read_uint64_count = safe_cast<size_t>(
                 divide_round_up(read_bit_count, bits_per_uint64));
-            streamsize data_size = safe_cast<streamsize>(mul_safe(read_uint64_count, sizeof(uint64_t)));
-            stream.read(reinterpret_cast<char*>(value_.get()), data_size);
+            streamsize data_size = safe_cast<streamsize>(
+                mul_safe(read_uint64_count, sizeof(uint64_t)));
+            if (data_size)
+            {
+                stream.read(reinterpret_cast<char*>(value_.get()), data_size);
+            }
 
             // Zero any extra space.
             if (uint64_count() > read_uint64_count)
@@ -301,12 +313,16 @@ namespace seal
                     value_.get() + read_uint64_count);
             }
         }
-        catch (const exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
     }
 }

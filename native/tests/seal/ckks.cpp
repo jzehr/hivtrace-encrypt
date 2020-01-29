@@ -4,8 +4,8 @@
 #include "gtest/gtest.h"
 #include "seal/ckks.h"
 #include "seal/context.h"
-#include "seal/defaultparams.h"
 #include "seal/keygenerator.h"
+#include "seal/modulus.h"
 #include <vector>
 #include <ctime>
 
@@ -21,9 +21,8 @@ namespace SEALTest
         {
             uint32_t slots = 32;
             parms.set_poly_modulus_degree(2 * slots);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_40bit(0), DefaultParams::small_mods_40bit(1),
-                DefaultParams::small_mods_40bit(2), DefaultParams::small_mods_40bit(3) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(2 * slots, { 40, 40, 40, 40 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -36,7 +35,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 16);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -49,9 +48,8 @@ namespace SEALTest
         {
             uint32_t slots = 32;
             parms.set_poly_modulus_degree(2 * slots);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0), DefaultParams::small_mods_60bit(1),
-                DefaultParams::small_mods_60bit(2), DefaultParams::small_mods_60bit(3) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(2 * slots, { 60, 60, 60, 60 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -67,7 +65,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 40);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -80,9 +78,8 @@ namespace SEALTest
         {
             uint32_t slots = 64;
             parms.set_poly_modulus_degree(2 * slots);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0),
-                DefaultParams::small_mods_60bit(1), DefaultParams::small_mods_60bit(2) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(2 * slots, { 60, 60, 60 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -98,7 +95,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 40);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -111,9 +108,8 @@ namespace SEALTest
         {
             uint32_t slots = 64;
             parms.set_poly_modulus_degree(2 * slots);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_30bit(0), DefaultParams::small_mods_30bit(1),
-                DefaultParams::small_mods_30bit(2), DefaultParams::small_mods_30bit(3), DefaultParams::small_mods_30bit(4) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(2 * slots, { 30, 30, 30, 30, 30 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -129,7 +125,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 40);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -142,9 +138,8 @@ namespace SEALTest
         {
             uint32_t slots = 32;
             parms.set_poly_modulus_degree(128);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_30bit(0), DefaultParams::small_mods_30bit(1),
-                DefaultParams::small_mods_30bit(2), DefaultParams::small_mods_30bit(3), DefaultParams::small_mods_30bit(4) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(128, { 30, 30, 30, 30, 30 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -160,7 +155,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 40);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -174,28 +169,11 @@ namespace SEALTest
             // Many primes
             uint32_t slots = 32;
             parms.set_poly_modulus_degree(128);
-            parms.set_coeff_modulus({ 
-                DefaultParams::small_mods_30bit(0), 
-                DefaultParams::small_mods_30bit(1),
-                DefaultParams::small_mods_30bit(2), 
-                DefaultParams::small_mods_30bit(3), 
-                DefaultParams::small_mods_30bit(4),
-                DefaultParams::small_mods_30bit(5),
-                DefaultParams::small_mods_30bit(6),
-                DefaultParams::small_mods_30bit(7),
-                DefaultParams::small_mods_30bit(8),
-                DefaultParams::small_mods_30bit(9), 
-                DefaultParams::small_mods_30bit(10),
-                DefaultParams::small_mods_30bit(11), 
-                DefaultParams::small_mods_30bit(12), 
-                DefaultParams::small_mods_30bit(13),
-                DefaultParams::small_mods_30bit(14),
-                DefaultParams::small_mods_30bit(15),
-                DefaultParams::small_mods_30bit(16),
-                DefaultParams::small_mods_30bit(17),
-                DefaultParams::small_mods_30bit(18),
-            });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(128, {
+                30, 30, 30, 30, 30, 30,
+                30, 30, 30, 30, 30, 30,
+                30, 30, 30, 30, 30, 30, 30 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -211,7 +189,7 @@ namespace SEALTest
             CKKSEncoder encoder(context);
             double delta = (1ULL << 40);
             Plaintext plain;
-            encoder.encode(values, parms.parms_id(), delta, plain);
+            encoder.encode(values, context->first_parms_id(), delta, plain);
             std::vector<std::complex<double>> result;
             encoder.decode(plain, result);
 
@@ -224,9 +202,8 @@ namespace SEALTest
         {
             uint32_t slots = 64;
             parms.set_poly_modulus_degree(2 * slots);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_40bit(0), DefaultParams::small_mods_40bit(1),
-                DefaultParams::small_mods_40bit(2), DefaultParams::small_mods_40bit(3), DefaultParams::small_mods_40bit(4) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(2 * slots, { 40, 40, 40, 40, 40 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
             std::vector<std::complex<double>> values(slots);
 
@@ -244,7 +221,7 @@ namespace SEALTest
                 // Use a very large scale
                 double delta = pow(2.0, 110);
                 Plaintext plain;
-                encoder.encode(values, parms.parms_id(), delta, plain);
+                encoder.encode(values, context->first_parms_id(), delta, plain);
                 std::vector<std::complex<double>> result;
                 encoder.decode(plain, result);
 
@@ -258,7 +235,7 @@ namespace SEALTest
                 // Use a scale over 128 bits
                 double delta = pow(2.0, 130);
                 Plaintext plain;
-                encoder.encode(values, parms.parms_id(), delta, plain);
+                encoder.encode(values, context->first_parms_id(), delta, plain);
                 std::vector<std::complex<double>> result;
                 encoder.decode(plain, result);
 
@@ -277,9 +254,8 @@ namespace SEALTest
         {
             uint32_t slots = 16;
             parms.set_poly_modulus_degree(64);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_40bit(0), DefaultParams::small_mods_40bit(1),
-                DefaultParams::small_mods_40bit(2), DefaultParams::small_mods_40bit(3) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(64, { 40, 40, 40, 40 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
             CKKSEncoder encoder(context);
 
             srand(static_cast<unsigned>(time(NULL)));
@@ -291,7 +267,7 @@ namespace SEALTest
             for (int iRun = 0; iRun < 50; iRun++)
             {
                 double value = static_cast<double>(rand() % data_bound);
-                encoder.encode(value, parms.parms_id(), delta, plain);
+                encoder.encode(value, context->first_parms_id(), delta, plain);
                 encoder.decode(plain, result);
 
                 for (size_t i = 0; i < slots; ++i)
@@ -304,9 +280,8 @@ namespace SEALTest
         {
             uint32_t slots = 32;
             parms.set_poly_modulus_degree(slots * 2);
-            parms.set_coeff_modulus({ DefaultParams::small_mods_40bit(0), DefaultParams::small_mods_40bit(1),
-                DefaultParams::small_mods_40bit(2), DefaultParams::small_mods_40bit(3) });
-            auto context = SEALContext::Create(parms);
+            parms.set_coeff_modulus(CoeffModulus::Create(slots * 2, { 40, 40, 40, 40 }));
+            auto context = SEALContext::Create(parms, false, sec_level_type::none);
             CKKSEncoder encoder(context);
 
             srand(static_cast<unsigned>(time(NULL)));
@@ -318,7 +293,7 @@ namespace SEALTest
                 for (int iRun = 0; iRun < 50; iRun++)
                 {
                     int value = static_cast<int>(rand() % data_bound);
-                    encoder.encode(value, parms.parms_id(), plain);
+                    encoder.encode(value, context->first_parms_id(), plain);
                     encoder.decode(plain, result);
 
                     for (size_t i = 0; i < slots; ++i)
@@ -337,7 +312,7 @@ namespace SEALTest
                 for (int iRun = 0; iRun < 50; iRun++)
                 {
                     int value = static_cast<int>(rand() % data_bound);
-                    encoder.encode(value, parms.parms_id(), plain);
+                    encoder.encode(value, context->first_parms_id(), plain);
                     encoder.decode(plain, result);
 
                     for (size_t i = 0; i < slots; ++i)
@@ -356,7 +331,7 @@ namespace SEALTest
                 for (int iRun = 0; iRun < 50; iRun++)
                 {
                     int value = static_cast<int>(rand() % data_bound);
-                    encoder.encode(value, parms.parms_id(), plain);
+                    encoder.encode(value, context->first_parms_id(), plain);
                     encoder.decode(plain, result);
 
                     for (size_t i = 0; i < slots; ++i)

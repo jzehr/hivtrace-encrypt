@@ -3,7 +3,9 @@
 
 #include "seal/smallmodulus.h"
 #include "seal/util/uintarith.h"
+#include "seal/util/uintarithsmallmod.h"
 #include "seal/util/common.h"
+#include "seal/util/numth.h"
 #include <stdexcept>
 
 using namespace seal::util;
@@ -11,7 +13,7 @@ using namespace std;
 
 namespace seal
 {
-    void SmallModulus::save(ostream &stream) const
+    void SmallModulus::save_members(ostream &stream) const
     {
         auto old_except_mask = stream.exceptions();
         try
@@ -21,16 +23,20 @@ namespace seal
 
             stream.write(reinterpret_cast<const char*>(&value_), sizeof(uint64_t));
         }
-        catch (const std::exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
     }
 
-    void SmallModulus::load(istream &stream)
+    void SmallModulus::load_members(istream &stream)
     {
         auto old_except_mask = stream.exceptions();
         try
@@ -42,12 +48,16 @@ namespace seal
             stream.read(reinterpret_cast<char*>(&value), sizeof(uint64_t));
             set_value(value);
         }
-        catch (const std::exception &)
+        catch (const ios_base::failure &)
+        {
+            stream.exceptions(old_except_mask);
+            throw runtime_error("I/O error");
+        }
+        catch (...)
         {
             stream.exceptions(old_except_mask);
             throw;
         }
-
         stream.exceptions(old_except_mask);
     }
 
@@ -60,8 +70,9 @@ namespace seal
             uint64_count_ = 1;
             value_ = 0;
             const_ratio_ = { { 0, 0, 0 } };
+            is_prime_ = false;
         }
-        else if ((value >> 62 != 0) || (value == uint64_t(0x4000000000000000)) || 
+        else if ((value >> 62 != 0) || (value == uint64_t(0x4000000000000000)) ||
             (value == 1))
         {
             throw invalid_argument("value can be at most 62 bits and cannot be 1");
@@ -86,6 +97,9 @@ namespace seal
             const_ratio_[2] = numerator[0];
 
             uint64_count_ = 1;
+
+            // Set the primality flag
+            is_prime_ = util::is_prime(*this);
         }
     }
 }

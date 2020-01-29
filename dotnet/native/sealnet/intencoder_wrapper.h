@@ -7,15 +7,13 @@
 //
 // This API is provided as a simple interface for Microsoft SEAL library
 // that can be PInvoked by .Net code.
-// 
+//
 ///////////////////////////////////////////////////////////////////////////
 
 #include "sealnet/defines.h"
 #include <stdint.h>
 
-SEALNETNATIVE HRESULT SEALCALL IntegerEncoder_Create1(void *context, void **encoder);
-
-SEALNETNATIVE HRESULT SEALCALL IntegerEncoder_Create2(void *copy, void **encoder);
+SEALNETNATIVE HRESULT SEALCALL IntegerEncoder_Create(void *context, void **encoder);
 
 SEALNETNATIVE HRESULT SEALCALL IntegerEncoder_Destroy(void *thisptr);
 

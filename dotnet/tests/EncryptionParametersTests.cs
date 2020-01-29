@@ -32,12 +32,8 @@ namespace SEALNetTest
             Assert.IsNotNull(encParams3);
             Assert.AreEqual(SchemeType.CKKS, encParams3.Scheme);
 
-            Assert.AreEqual(encParams2.ParmsId, encParams3.ParmsId);
-            Assert.AreNotEqual(encParams.ParmsId, encParams2.ParmsId);
-
             EncryptionParameters copy = new EncryptionParameters(encParams);
 
-            Assert.AreEqual(encParams.ParmsId, copy.ParmsId);
             Assert.AreEqual(SchemeType.BFV, copy.Scheme);
             Assert.AreEqual(encParams, copy);
             Assert.AreEqual(encParams.GetHashCode(), copy.GetHashCode());
@@ -55,12 +51,12 @@ namespace SEALNetTest
         {
             EncryptionParameters parms = new EncryptionParameters(SchemeType.CKKS);
 
-            Assert.ThrowsException<InvalidOperationException>(() =>
+            Utilities.AssertThrows<InvalidOperationException>(() =>
             {
                 parms.PlainModulus = new SmallModulus(8192);
             });
 
-            Assert.ThrowsException<InvalidOperationException>(() =>
+            Utilities.AssertThrows<InvalidOperationException>(() =>
             {
                 parms.SetPlainModulus(8192);
             });
@@ -72,20 +68,19 @@ namespace SEALNetTest
             EncryptionParameters encParams = new EncryptionParameters(SchemeType.BFV);
 
             Assert.IsNotNull(encParams);
-            Assert.AreEqual(4, encParams.ParmsId.Block.Length);
 
             List<SmallModulus> coeffs = new List<SmallModulus>(encParams.CoeffModulus);
             Assert.IsNotNull(coeffs);
             Assert.AreEqual(0, coeffs.Count);
 
-            coeffs = new List<SmallModulus>(DefaultParams.CoeffModulus128(4096));
-            encParams.CoeffModulus = coeffs;
+            encParams.CoeffModulus = CoeffModulus.BFVDefault(4096);
 
             List<SmallModulus> newCoeffs = new List<SmallModulus>(encParams.CoeffModulus);
             Assert.IsNotNull(newCoeffs);
-            Assert.AreEqual(2, newCoeffs.Count);
-            Assert.AreEqual(0x007fffffff380001ul, newCoeffs[0].Value);
-            Assert.AreEqual(0x003fffffff000001ul, newCoeffs[1].Value);
+            Assert.AreEqual(3, newCoeffs.Count);
+            Assert.AreEqual(0xffffee001ul, newCoeffs[0].Value);
+            Assert.AreEqual(0xffffc4001ul, newCoeffs[1].Value);
+            Assert.AreEqual(0x1ffffe0001ul, newCoeffs[2].Value);
         }
 
         [TestMethod]
@@ -93,11 +88,7 @@ namespace SEALNetTest
         {
             TestDelegate save_load_test = delegate(SchemeType scheme)
             {
-                List<SmallModulus> coeffModulus = new List<SmallModulus>
-                {
-                    DefaultParams.SmallMods40Bit(0),
-                    DefaultParams.SmallMods40Bit(1)
-                };
+                List<SmallModulus> coeffModulus = (List<SmallModulus>)CoeffModulus.Create(8, new int[] { 40, 40 });
                 EncryptionParameters parms = new EncryptionParameters(scheme)
                 {
                     PolyModulusDegree = 8,
@@ -106,15 +97,13 @@ namespace SEALNetTest
                 if (scheme == SchemeType.BFV)
                     parms.SetPlainModulus(257);
 
-                EncryptionParameters loaded = null;
+                EncryptionParameters loaded = new EncryptionParameters();
 
                 using (MemoryStream stream = new MemoryStream())
                 {
-                    EncryptionParameters.Save(parms, stream);
-
+                    parms.Save(stream);
                     stream.Seek(offset: 0, loc: SeekOrigin.Begin);
-
-                    loaded = EncryptionParameters.Load(stream);
+                    loaded.Load(stream);
                 }
 
                 Assert.AreEqual(scheme, loaded.Scheme);
@@ -130,8 +119,6 @@ namespace SEALNetTest
                 Assert.AreNotSame(coeffModulus[1], loadedCoeffModulus[1]);
                 Assert.AreEqual(coeffModulus[0], loadedCoeffModulus[0]);
                 Assert.AreEqual(coeffModulus[1], loadedCoeffModulus[1]);
-                Assert.AreEqual(parms.NoiseMaxDeviation, loaded.NoiseMaxDeviation, delta: 0.001);
-                Assert.AreEqual(parms.NoiseStandardDeviation, loaded.NoiseStandardDeviation, delta: 0.001);
             };
             save_load_test(SchemeType.BFV);
             save_load_test(SchemeType.CKKS);
@@ -144,11 +131,7 @@ namespace SEALNetTest
             {
                 PolyModulusDegree = 8,
                 PlainModulus = new SmallModulus(257),
-                CoeffModulus = new List<SmallModulus>()
-                {
-                    DefaultParams.SmallMods40Bit(0),
-                    DefaultParams.SmallMods40Bit(1)
-                }
+                CoeffModulus = CoeffModulus.Create(8, new int[] { 40, 40 })
             };
 
             EncryptionParameters parms2 = new EncryptionParameters(SchemeType.CKKS);
@@ -161,18 +144,12 @@ namespace SEALNetTest
         public void ExceptionsTest()
         {
             EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV);
-
-            Assert.ThrowsException<ArgumentNullException>(() => parms = new EncryptionParameters(null));
-
-            Assert.ThrowsException<ArgumentNullException>(() => parms.Set(null));
-
-            Assert.ThrowsException<ArgumentNullException>(() => parms.CoeffModulus = null);
-
-            Assert.ThrowsException<ArgumentNullException>(() => EncryptionParameters.Save(parms, null));
-            Assert.ThrowsException<ArgumentNullException>(() => EncryptionParameters.Save(null, new MemoryStream()));
-
-            Assert.ThrowsException<ArgumentNullException>(() => EncryptionParameters.Load(null));
-            Assert.ThrowsException<ArgumentException>(() => EncryptionParameters.Load(new MemoryStream()));
+            Utilities.AssertThrows<ArgumentNullException>(() => parms = new EncryptionParameters(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => parms.Set(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => parms.CoeffModulus = null);
+            Utilities.AssertThrows<ArgumentNullException>(() => parms.Save(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => parms.Load(null));
+            Utilities.AssertThrows<EndOfStreamException>(() => parms.Load(new MemoryStream()));
         }
     }
 }

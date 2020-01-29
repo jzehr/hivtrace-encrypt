@@ -11,26 +11,6 @@ namespace SEALNetTest
     public class MemoryPoolHandleTests
     {
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
-        public void PoolCountUninitializedTest()
-        {
-            MemoryPoolHandle handle = new MemoryPoolHandle();
-            Assert.IsFalse(handle.IsInitialized);
-            ulong count = handle.PoolCount;
-            Assert.AreEqual(0ul, count);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
-        public void AllocByteCountUninitializedTest()
-        {
-            MemoryPoolHandle handle = new MemoryPoolHandle();
-            Assert.IsFalse(handle.IsInitialized);
-            ulong count = handle.AllocByteCount;
-            Assert.AreEqual(0ul, count);
-        }
-
-        [TestMethod]
         public void CreateTest()
         {
             MemoryPoolHandle handle = MemoryManager.GetPool();
@@ -93,13 +73,27 @@ namespace SEALNetTest
         }
 
         [TestMethod]
+        public void UseCountTest()
+        {
+            MemoryPoolHandle pool = MemoryPoolHandle.New();
+            Assert.AreEqual(1L, pool.UseCount);
+            Plaintext plain = new Plaintext(pool);
+            Assert.AreEqual(2L, pool.UseCount);
+            Plaintext plain2 = new Plaintext(pool);
+            Assert.AreEqual(3L, pool.UseCount);
+            plain.Dispose();
+            plain2.Dispose();
+            Assert.AreEqual(1L, pool.UseCount);
+        }
+
+        [TestMethod]
         public void ExceptionsTest()
         {
             MemoryPoolHandle handle = new MemoryPoolHandle();
 
-            Assert.ThrowsException<ArgumentNullException>(() => handle = new MemoryPoolHandle(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => handle = new MemoryPoolHandle(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => handle.Set(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => handle.Set(null));
         }
     }
 }

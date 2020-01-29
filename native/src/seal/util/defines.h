@@ -22,7 +22,7 @@ static_assert(sizeof(unsigned long long) == 8, "Require sizeof(unsigned long lon
 
 // Bounds for bit-length of user-defined coefficient moduli
 #define SEAL_USER_MOD_BIT_COUNT_MAX 60
-#define SEAL_USER_MOD_BIT_COUNT_MIN 1
+#define SEAL_USER_MOD_BIT_COUNT_MIN 2
 
 // Bounds for number of coefficient moduli
 #define SEAL_COEFF_MOD_COUNT_MAX 62
@@ -33,34 +33,12 @@ static_assert(sizeof(unsigned long long) == 8, "Require sizeof(unsigned long lon
 #define SEAL_POLY_MOD_DEGREE_MIN 2
 
 // Bounds for the plaintext modulus
-#define SEAL_PLAIN_MOD_MIN 2
-#define SEAL_PLAIN_MOD_MAX (std::uint64_t(1) << SEAL_USER_MOD_BIT_COUNT_MAX) - 1
+#define SEAL_PLAIN_MOD_MIN SEAL_USER_MOD_BIT_COUNT_MIN
+#define SEAL_PLAIN_MOD_MAX SEAL_USER_MOD_BIT_COUNT_MAX
 
 // Upper bound on the size of a ciphertext
 #define SEAL_CIPHERTEXT_SIZE_MIN 2
-#define SEAL_CIPHERTEXT_SIZE_MAX 32768
-
-// Bounds for decomposition bit count
-#define SEAL_DBC_MAX 60
-#define SEAL_DBC_MIN 1
-
-// Bounds for number of relinearization keys
-#define SEAL_RELIN_KEY_COUNT_MAX 8
-#define SEAL_RELIN_KEY_COUNT_MIN 1
-
-// Use std::byte as byte type
-#if defined(SEAL_USE_STD_BYTE)
-#include <cstddef>
-namespace seal
-{
-    using SEAL_BYTE = std::byte;
-}
-#else
-namespace seal
-{
-    enum class SEAL_BYTE : unsigned char {};
-}
-#endif
+#define SEAL_CIPHERTEXT_SIZE_MAX 16
 
 // Detect compiler
 #define SEAL_COMPILER_MSVC 1
@@ -73,6 +51,8 @@ namespace seal
 #define SEAL_COMPILER SEAL_COMPILER_CLANG
 #elif defined(__GNUC__) && !defined(__clang__)
 #define SEAL_COMPILER SEAL_COMPILER_GCC
+#else
+#error "Unsupported compiler"
 #endif
 
 // MSVC support
@@ -91,28 +71,43 @@ namespace seal
 #define SEAL_DEBUG_V false
 #endif
 
+// Use std::byte as byte type
+#ifdef SEAL_USE_STD_BYTE
+#include <cstddef>
+namespace seal
+{
+    using SEAL_BYTE = std::byte;
+}
+#else
+namespace seal
+{
+    enum class SEAL_BYTE : unsigned char {};
+}
+#endif
+
 // Use `if constexpr' from C++17
 #ifdef SEAL_USE_IF_CONSTEXPR
 #define SEAL_IF_CONSTEXPR if constexpr
 #else
-#define SEAL_IF_CONSTEXPR if 
+#define SEAL_IF_CONSTEXPR if
 #endif
 
 // Use [[maybe_unused]] from C++17
 #ifdef SEAL_USE_MAYBE_UNUSED
 #define SEAL_MAYBE_UNUSED [[maybe_unused]]
 #else
-#define SEAL_MAYBE_UNUSED 
+#define SEAL_MAYBE_UNUSED
+#endif
+
+// Use [[nodiscard]] from C++17
+#ifdef SEAL_USE_NODISCARD
+#define SEAL_NODISCARD [[nodiscard]]
+#else
+#define SEAL_NODISCARD
 #endif
 
 // Which random number generator factory to use by default
-#ifdef SEAL_USE_AES_NI_PRNG
-// AES-PRNG with seed from std::random_device
-#define SEAL_DEFAULT_RNG_FACTORY FastPRNGFactory()
-#else
-// std::random_device
-#define SEAL_DEFAULT_RNG_FACTORY StandardRandomAdapterFactory<std::random_device>
-#endif
+#define SEAL_DEFAULT_RNG_FACTORY BlakePRNGFactory()
 
 // Use generic functions as (slower) fallback
 #ifndef SEAL_ADD_CARRY_UINT64
@@ -129,6 +124,12 @@ namespace seal
 }
 #endif
 
+#ifndef SEAL_DIVIDE_UINT128_UINT64
+#define SEAL_DIVIDE_UINT128_UINT64(numerator, denominator, result) {               \
+    divide_uint128_uint64_inplace_generic(numerator, denominator, result);         \
+}
+#endif
+
 #ifndef SEAL_MULTIPLY_UINT64_HW64
 #define SEAL_MULTIPLY_UINT64_HW64(operand1, operand2, hw64) {                      \
     multiply_uint64_hw64_generic(operand1, operand2, hw64);                        \
@@ -137,9 +138,4 @@ namespace seal
 
 #ifndef SEAL_MSB_INDEX_UINT64
 #define SEAL_MSB_INDEX_UINT64(result, value) get_msb_index_generic(result, value)
-#endif
-
-// HomomorphicEncryption.org security tables only support dimensions up to 32768
-#ifdef SEAL_ENFORCE_HE_STD_SECURITY
-    static_assert(SEAL_POLY_MOD_DEGREE_MAX <= 32768, "SEAL_POLY_MOD_DEGREE_MAX too large");
 #endif

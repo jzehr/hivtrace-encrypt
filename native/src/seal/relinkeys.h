@@ -6,9 +6,11 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include "seal/util/defines.h"
 #include "seal/ciphertext.h"
 #include "seal/memorymanager.h"
 #include "seal/encryptionparams.h"
+#include "seal/kswitchkeys.h"
 
 namespace seal
 {
@@ -16,246 +18,81 @@ namespace seal
     Class to store relinearization keys.
 
     @par Relinearization
-    Concretely, an relinearization key corresponding to a power K of the secret 
-    key can be used in the relinearization operation to change a ciphertext of size 
-    K+1 to size K. Recall that the smallest possible size for a ciphertext is 2, 
-    so the first relinearization key is corresponds to the square of the secret 
-    key. The second relinearization key corresponds to the cube of the secret key, 
-    and so on. For example, to relinearize a ciphertext of size 7 back to size 2, 
-    one would need 5 relinearization keys, although it is hard to imagine a situation 
-    where it makes sense to have size 7 ciphertexts, as operating on such objects 
-    would be very slow. Most commonly only one relinearization key is needed, and 
-    relinearization is performed after every multiplication. 
+    Freshly encrypted ciphertexts have a size of 2, and multiplying ciphertexts
+    of sizes K and L results in a ciphertext of size K+L-1. Unfortunately, this
+    growth in size slows down further multiplications and increases noise growth.
+    Relinearization is an operation that has no semantic meaning, but it reduces
+    the size of ciphertexts back to 2. Microsoft SEAL can only relinearize size 3
+    ciphertexts back to size 2, so if the ciphertexts grow larger than size 3,
+    there is no way to reduce their size. Relinearization requires an instance of
+    RelinKeys to be created by the secret key owner and to be shared with the
+    evaluator. Note that plain multiplication is fundamentally different from
+    normal multiplication and does not result in ciphertext size growth.
 
-    @par Decomposition Bit Count
-    Decomposition bit count (dbc) is a parameter that describes a performance 
-    trade-off in the relinearization process. Namely, in the relinearization process 
-    the polynomials in the ciphertexts (with large coefficients) get decomposed 
-    into a smaller base 2^dbc, coefficient-wise. Each of the decomposition factors 
-    corresponds to a piece of data in the relinearization key, so the smaller the 
-    dbc is, the larger the relinearization keys are. Moreover, a smaller dbc results 
-    in less invariant noise budget being consumed in the relinearization process. 
-    However, using a large dbc is much faster, and often one would want to optimize 
-    the dbc to be as large as possible for performance. The dbc is upper-bounded 
-    by the value of 60, and lower-bounded by the value of 1.
+    @par When to Relinearize
+    Typically, one should always relinearize after each multiplications. However,
+    in some cases relinearization should be postponed as late as possible due to
+    its computational cost. For example, suppose the computation involves several
+    homomorphic multiplications followed by a sum of the results. In this case it
+    makes sense to not relinearize each product, but instead add them first and
+    only then relinearize the sum. This is particularly important when using the
+    CKKS scheme, where relinearization is much more computationally costly than
+    multiplications and additions.
 
     @par Thread Safety
-    In general, reading from RelinKeys is thread-safe as long as no other thread 
-    is concurrently mutating it. This is due to the underlying data structure 
+    In general, reading from RelinKeys is thread-safe as long as no other thread
+    is concurrently mutating it. This is due to the underlying data structure
     storing the relinearization keys not being thread-safe.
-
 
     @see SecretKey for the class that stores the secret key.
     @see PublicKey for the class that stores the public key.
     @see GaloisKeys for the class that stores the Galois keys.
     @see KeyGenerator for the class that generates the relinearization keys.
     */
-    class RelinKeys
+    class RelinKeys : public KSwitchKeys
     {
-        friend class KeyGenerator;
-
     public:
         /**
-        Creates an empty set of relinearization keys.
-        */
-        RelinKeys() = default;
-
-        /**
-        Creates a new RelinKeys instance by copying a given instance.
-
-        @param[in] copy The RelinKeys to copy from
-        */
-        RelinKeys(const RelinKeys &copy) = default;
-
-        /**
-        Creates a new RelinKeys instance by moving a given instance.
-
-        @param[in] source The RelinKeys to move from
-        */
-        RelinKeys(RelinKeys &&source) = default;
-
-        /**
-        Copies a given RelinKeys instance to the current one.
-
-        @param[in] assign The RelinKeys to copy from
-        */
-        RelinKeys &operator =(const RelinKeys &assign);
-
-        /**
-        Moves a given RelinKeys instance to the current one.
-
-        @param[in] assign The RelinKeys to move from
-        */
-        RelinKeys &operator =(RelinKeys &&assign) = default;
-
-        /**
-        Returns the current number of relinearization keys.
-        */
-        inline std::size_t size() const
-        {
-            return keys_.size();
-        }
-
-        /**
-        Returns the decomposition bit count.
-        */
-        inline int decomposition_bit_count() const noexcept
-        {
-            return decomposition_bit_count_;
-        }
-
-        /**
-        Returns a reference to the relinearization keys data.
-        */
-        inline auto &data() noexcept
-        {
-            return keys_;
-        }
-
-        /**
-        Returns a const reference to the relinearization keys data.
-        */
-        inline auto &data() const noexcept
-        {
-            return keys_;
-        }
-
-        /**
-        Returns a const reference to an relinearization key. The returned 
-        relinearization key corresponds to the given power of the secret key.
-
+        Returns the index of a relinearization key in the backing KSwitchKeys
+        instance that corresponds to the given secret key power, assuming that
+        it exists in the backing KSwitchKeys.
 
         @param[in] key_power The power of the secret key
-        @throw std::invalid_argument if the key corresponding to key_power does 
-        not exist
+        @throws std::invalid_argument if key_power is less than 2
         */
-        inline auto &key(std::size_t key_power) const
+        SEAL_NODISCARD inline static std::size_t get_index(
+            std::size_t key_power)
         {
-            if (!has_key(key_power))
+            if (key_power < 2)
             {
-                throw std::invalid_argument("requested key does not exist");
+                throw std::invalid_argument("key_power cannot be less than 2");
             }
-            return keys_[key_power - 2];
+            return key_power - 2;
         }
 
         /**
-        Returns whether an relinearization key corresponding to a given power of 
+        Returns whether a relinearization key corresponding to a given power of
         the secret key exists.
 
         @param[in] key_power The power of the secret key
+        @throws std::invalid_argument if key_power is less than 2
         */
-        inline bool has_key(std::size_t key_power) const noexcept
+        SEAL_NODISCARD inline bool has_key(std::size_t key_power) const
         {
-            return (key_power >= 2) && (keys_.size() >= key_power - 1);
+            std::size_t index = get_index(key_power);
+            return data().size() > index && !data()[index].empty();
         }
 
         /**
-        Returns a reference to parms_id.
+        Returns a const reference to a relinearization key. The returned
+        relinearization key corresponds to the given power of the secret key.
 
-        @see EncryptionParameters for more information about parms_id.
+        @param[in] key_power The power of the secret key
+        @throws std::invalid_argument if the key corresponding to key_power does not exist
         */
-        inline auto &parms_id() noexcept
+        SEAL_NODISCARD inline auto &key(std::size_t key_power) const
         {
-            return parms_id_;
+            return KSwitchKeys::data(get_index(key_power));
         }
-
-        /**
-        Returns a const reference to parms_id.
-
-        @see EncryptionParameters for more information about parms_id.
-        */
-        inline auto &parms_id() const noexcept
-        {
-            return parms_id_;
-        }
-
-        /**
-        Check whether the current RelinKeys is valid for a given SEALContext. If 
-        the given SEALContext is not set, the encryption parameters are invalid, 
-        or the RelinKeys data does not match the SEALContext, this function returns 
-        false. Otherwise, returns true.
-
-        @param[in] context The SEALContext
-        */
-        bool is_valid_for(std::shared_ptr<const SEALContext> context) const noexcept;
-
-        /**
-        Check whether the current RelinKeys is valid for a given SEALContext. If 
-        the given SEALContext is not set, the encryption parameters are invalid, 
-        or the RelinKeys data does not match the SEALContext, this function returns 
-        false. Otherwise, returns true. This function only checks the metadata
-        and not the relinearization key data itself.
-
-        @param[in] context The SEALContext
-        */
-        bool is_metadata_valid_for(std::shared_ptr<const SEALContext> context) const noexcept;
-
-        /**
-        Saves the RelinKeys instance to an output stream. The output is in binary 
-        format and not human-readable. The output stream must have the "binary" 
-        flag set.
-
-        @param[in] stream The stream to save the RelinKeys to
-        @throws std::exception if the RelinKeys could not be written to stream
-        */
-        void save(std::ostream &stream) const;
-
-        /**
-        Loads a RelinKeys from an input stream overwriting the current RelinKeys.
-        No checking of the validity of the RelinKeys data against encryption
-        parameters is performed. This function should not be used unless the 
-        RelinKeys comes from a fully trusted source.
-
-        @param[in] stream The stream to load the RelinKeys from
-        @throws std::exception if a valid RelinKeys could not be read from stream
-        */
-        void unsafe_load(std::istream &stream);
-
-        /**
-        Loads a RelinKeys from an input stream overwriting the current RelinKeys.
-        The loaded RelinKeys is verified to be valid for the given SEALContext.
-
-        @param[in] context The SEALContext
-        @param[in] stream The stream to load the RelinKeys from
-        @throws std::invalid_argument if the context is not set or encryption
-        parameters are not valid
-        @throws std::exception if a valid RelinKeys could not be read from stream
-        @throws std::invalid_argument if the loaded RelinKeys is invalid for the
-        context
-        */
-        inline void load(std::shared_ptr<SEALContext> context,
-            std::istream &stream)
-        {
-            unsafe_load(stream);
-            if (!is_valid_for(std::move(context)))
-            {
-                throw std::invalid_argument("RelinKeys data is invalid");
-            }
-        }
-
-        /**
-        Returns the currently used MemoryPoolHandle.
-        */
-        inline MemoryPoolHandle pool() const noexcept
-        {
-            return pool_;
-        }
-
-        /**
-        Enables access to private members of seal::RelinKeys for .NET wrapper.
-        */
-        struct RelinKeysPrivateHelper;
-
-    private:
-        MemoryPoolHandle pool_ = MemoryManager::GetPool();
-
-        parms_id_type parms_id_ = parms_id_zero;
-
-        /**
-        The vector of relinearization keys.
-        */
-        std::vector<std::vector<Ciphertext>> keys_{};
-
-        int decomposition_bit_count_ = 0;
     };
 }

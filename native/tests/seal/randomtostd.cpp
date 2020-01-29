@@ -14,7 +14,7 @@ namespace SEALTest
 {
     TEST(RandomToStandard, RandomToStandardGenerate)
     {
-        shared_ptr<UniformRandomGenerator> generator(UniformRandomGeneratorFactory::default_factory()->create());
+        shared_ptr<UniformRandomGenerator> generator(UniformRandomGeneratorFactory::DefaultFactory()->create());
         RandomToStandardAdapter rand(generator);
         ASSERT_TRUE(rand.generator() == generator);
         ASSERT_EQ(static_cast<uint32_t>(0), rand.min());
@@ -23,7 +23,7 @@ namespace SEALTest
         bool upper_half = false;
         bool even = false;
         bool odd = false;
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 50; i++)
         {
             uint32_t value = rand();
             if (value < UINT32_MAX / 2)

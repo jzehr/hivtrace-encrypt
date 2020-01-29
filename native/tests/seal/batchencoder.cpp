@@ -4,8 +4,8 @@
 #include "gtest/gtest.h"
 #include "seal/batchencoder.h"
 #include "seal/context.h"
-#include "seal/defaultparams.h"
 #include "seal/keygenerator.h"
+#include "seal/modulus.h"
 #include <vector>
 #include <ctime>
 
@@ -19,11 +19,11 @@ namespace SEALTest
     {
         EncryptionParameters parms(scheme_type::BFV);
         parms.set_poly_modulus_degree(64);
-        parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0) });
+        parms.set_coeff_modulus(CoeffModulus::Create(64, { 60 }));
         parms.set_plain_modulus(257);
 
-        auto context = SEALContext::Create(parms);
-        ASSERT_TRUE(context->context_data()->qualifiers().using_batching);
+        auto context = SEALContext::Create(parms, false, sec_level_type::none);
+        ASSERT_TRUE(context->first_context_data()->qualifiers().using_batching);
 
         BatchEncoder batch_encoder(context);
         ASSERT_EQ(64ULL, batch_encoder.slot_count());
@@ -72,18 +72,18 @@ namespace SEALTest
     {
         EncryptionParameters parms(scheme_type::BFV);
         parms.set_poly_modulus_degree(64);
-        parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0) });
+        parms.set_coeff_modulus(CoeffModulus::Create(64, { 60 }));
         parms.set_plain_modulus(257);
 
-        auto context = SEALContext::Create(parms);
-        ASSERT_TRUE(context->context_data()->qualifiers().using_batching);
+        auto context = SEALContext::Create(parms, false, sec_level_type::none);
+        ASSERT_TRUE(context->first_context_data()->qualifiers().using_batching);
 
         BatchEncoder batch_encoder(context);
         ASSERT_EQ(64ULL, batch_encoder.slot_count());
         vector<int64_t> plain_vec;
-        for (size_t i = 0; i < batch_encoder.slot_count(); i++)
+        for (uint64_t i = 0; i < static_cast<uint64_t>(batch_encoder.slot_count()); i++)
         {
-            plain_vec.push_back(static_cast<int64_t>(i * (1 - 2 * (i % 2))));
+            plain_vec.push_back(static_cast<int64_t>(i * (1 - (i % 2) * 2)));
         }
 
         Plaintext plain;
@@ -102,9 +102,9 @@ namespace SEALTest
         ASSERT_TRUE(plain_vec == plain_vec2);
 
         vector<int64_t> short_plain_vec;
-        for (size_t i = 0; i < 20; i++)
+        for (int64_t i = 0; i < 20; i++)
         {
-            short_plain_vec.push_back(static_cast<int64_t>(i * (1 - 2 * (i % 2))));
+            short_plain_vec.push_back(i * (int64_t(1) - (i & 1) * 2));
         }
         batch_encoder.encode(short_plain_vec, plain);
         vector<int64_t> short_plain_vec2;
@@ -113,11 +113,11 @@ namespace SEALTest
         ASSERT_EQ(64ULL, short_plain_vec2.size());
         for (size_t i = 0; i < 20; i++)
         {
-            ASSERT_TRUE(short_plain_vec[i] == short_plain_vec2[i]);
+            ASSERT_EQ(short_plain_vec[i], short_plain_vec2[i]);
         }
         for (size_t i = 20; i < batch_encoder.slot_count(); i++)
         {
-            ASSERT_TRUE(0LL == short_plain_vec2[i]);
+            ASSERT_EQ(0ULL, short_plain_vec2[i]);
         }
     }
 
@@ -125,11 +125,11 @@ namespace SEALTest
     {
         EncryptionParameters parms(scheme_type::BFV);
         parms.set_poly_modulus_degree(64);
-        parms.set_coeff_modulus({ DefaultParams::small_mods_60bit(0) });
+        parms.set_coeff_modulus(CoeffModulus::Create(64, { 60 }));
         parms.set_plain_modulus(257);
 
-        auto context = SEALContext::Create(parms);
-        ASSERT_TRUE(context->context_data()->qualifiers().using_batching);
+        auto context = SEALContext::Create(parms, false, sec_level_type::none);
+        ASSERT_TRUE(context->first_context_data()->qualifiers().using_batching);
 
         BatchEncoder batch_encoder(context);
         ASSERT_EQ(64ULL, batch_encoder.slot_count());

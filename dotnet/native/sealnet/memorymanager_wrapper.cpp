@@ -57,7 +57,6 @@ namespace
     }
 }
 
-
 SEALNETNATIVE HRESULT SEALCALL MemoryManager_GetPool1(int prof_opt, bool clear_on_destruction, void **pool_handle)
 {
     IfNullRet(pool_handle, E_POINTER);
@@ -100,6 +99,7 @@ SEALNETNATIVE HRESULT SEALCALL MemoryManager_SwitchProfile(void *new_profile)
     // need to make a copy that will be owned by the Memory Manager.
     MMProf *new_mm_profile = nullptr;
     IfFailRet(CreateProfileCopy(profile, &new_mm_profile));
+
     MemoryManager::SwitchProfile(static_cast<MMProf*>(new_mm_profile));
     return S_OK;
 }

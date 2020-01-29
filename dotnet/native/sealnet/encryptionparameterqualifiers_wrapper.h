@@ -7,7 +7,7 @@
 //
 // This API is provided as a simple interface for Microsoft SEAL library
 // that can be PInvoked by .Net code.
-// 
+//
 ///////////////////////////////////////////////////////////////////////////
 
 #include "sealnet/defines.h"
@@ -27,4 +27,6 @@ SEALNETNATIVE HRESULT SEALCALL EPQ_UsingBatching(void *thisptr, bool *using_batc
 
 SEALNETNATIVE HRESULT SEALCALL EPQ_UsingFastPlainLift(void *thisptr, bool *using_fast_plain_lift);
 
-SEALNETNATIVE HRESULT SEALCALL EPQ_UsingHEStdSecurity(void *thisptr, bool *using_HE_std_security);
+SEALNETNATIVE HRESULT SEALCALL EPQ_UsingDescendingModulusChain(void *thisptr, bool *using_descending_modulus_chain);
+
+SEALNETNATIVE HRESULT SEALCALL EPQ_SecLevel(void *thisptr, int *sec_level);

@@ -13,9 +13,9 @@ namespace seal
     {
         namespace global_variables
         {
-            std::unique_ptr<MemoryPool> const global_memory_pool(new MemoryPoolMT);
+            std::shared_ptr<MemoryPool> const global_memory_pool{ std::make_shared<MemoryPoolMT>() };
 #ifndef _M_CEE
-            thread_local std::unique_ptr<MemoryPool> const tls_memory_pool(new MemoryPoolST);
+            thread_local std::shared_ptr<MemoryPool> const tls_memory_pool{ std::make_shared<MemoryPoolST>() };
 #else
 #pragma message("WARNING: Thread-local memory pools disabled to support /clr")
 #endif
@@ -41,46 +41,46 @@ namespace seal
 
                 /*
                 Polynomial modulus: 1x^4096 + 1
-                Modulus count: 2
-                Total bit count: 109 = 55 + 54
+                Modulus count: 3
+                Total bit count: 109 = 2 * 36 + 37
                 */
                 { 4096,{
-                    0x7fffffff380001,  0x3fffffff000001
+                    0xffffee001, 0xffffc4001, 0x1ffffe0001
                 } },
 
                 /*
                 Polynomial modulus: 1x^8192 + 1
-                Modulus count: 4
-                Total bit count: 218 = 2 * 55 + 2 * 54
+                Modulus count: 5
+                Total bit count: 218 = 2 * 43 + 3 * 44
                 */
                 { 8192,{
-                    0x7fffffff380001,  0x7ffffffef00001,
-                    0x3fffffff000001,  0x3ffffffef40001
+                    0x7fffffd8001, 0x7fffffc8001,
+                    0xfffffffc001, 0xffffff6c001, 0xfffffebc001
                 } },
 
                 /*
                 Polynomial modulus: 1x^16384 + 1
-                Modulus count: 8
-                Total bit count: 438 = 6 * 55 + 2 * 54
+                Modulus count: 9
+                Total bit count: 438 = 3 * 48 + 6 * 49
                 */
                 { 16384,{
-                    0x7fffffff380001,  0x7ffffffef00001,  
-                    0x7ffffffeac0001,  0x7ffffffe700001,
-                    0x7ffffffe600001,  0x7ffffffe4c0001,
-                    0x3fffffff000001,  0x3ffffffef40001
+                    0xfffffffd8001, 0xfffffffa0001, 0xfffffff00001,
+                    0x1fffffff68001, 0x1fffffff50001, 0x1ffffffee8001,
+                    0x1ffffffea0001, 0x1ffffffe88001, 0x1ffffffe48001
                 } },
 
                 /*
                 Polynomial modulus: 1x^32768 + 1
-                Modulus count: 15
-                Total bit count: 881 = 11 * 59 + 4 * 58
+                Modulus count: 16
+                Total bit count: 881 = 15 * 55 + 56
                 */
                 { 32768,{
-                    0x7ffffffffcc0001,  0x7ffffffffb00001,  0x7ffffffff2c0001,  
-                    0x7ffffffff240001,  0x7fffffffe900001,  0x7fffffffe3c0001,  
-                    0x7fffffffe240001,  0x7fffffffddc0001,  0x7fffffffd740001,  
-                    0x7fffffffd640001,  0x7fffffffd080001,  0x3ffffffff040001,  
-                    0x3fffffffed00001,  0x3fffffffeb00001,  0x3fffffffea00001
+                    0x7fffffffe90001, 0x7fffffffbf0001, 0x7fffffffbd0001,
+                    0x7fffffffba0001, 0x7fffffffaa0001, 0x7fffffffa50001,
+                    0x7fffffff9f0001, 0x7fffffff7e0001, 0x7fffffff770001,
+                    0x7fffffff380001, 0x7fffffff330001, 0x7fffffff2d0001,
+                    0x7fffffff170001, 0x7fffffff150001, 0x7ffffffef00001,
+                    0xfffffffff70001
                 } }
             };
 
@@ -106,45 +106,43 @@ namespace seal
 
                 /*
                 Polynomial modulus: 1x^4096 + 1
-                Modulus count: 2
-                Total bit count: 75 = 38 + 37
+                Modulus count: 3
+                Total bit count: 75 = 3 * 25
                 */
                 { 4096,{
-                    0x3fffe80001,  0x1ffffc0001
+                    0x1ffc001, 0x1fce001, 0x1fc0001
                 } },
 
                 /*
                 Polynomial modulus: 1x^8192 + 1
-                Modulus count: 3
-                Total bit count: 152 = 2 * 51 + 50
+                Modulus count: 4
+                Total bit count: 152 = 4 * 38
                 */
                 { 8192,{
-                    0x7ffffff9c0001,  0x7ffffff900001,  0x3ffffffb80001
+                    0x3ffffac001, 0x3ffff54001,
+                    0x3ffff48001, 0x3ffff28001
                 } },
 
                 /*
                 Polynomial modulus: 1x^16384 + 1
-                Modulus count: 5
-                Total bit count: 300 = 5 * 60
+                Modulus count: 6
+                Total bit count: 300 = 6 * 50
                 */
                 { 16384,{
-                    0xffffffffffc0001,  0xfffffffff840001,
-                    0xfffffffff240001,  0xffffffffe7c0001,
-                    0xffffffffe740001
-
+                    0x3ffffffdf0001, 0x3ffffffd48001, 0x3ffffffd20001,
+                    0x3ffffffd18001, 0x3ffffffcd0001, 0x3ffffffc70001
                 } },
 
                 /*
                 Polynomial modulus: 1x^32768 + 1
-                Modulus count: 10
-                Total bit count: 600 = 10 * 60
+                Modulus count: 11
+                Total bit count: 600 = 5 * 54 + 6 * 55
                 */
                 { 32768,{
-                    0xffffffffffc0001, 0xfffffffff840001,
-                    0xfffffffff240001, 0xffffffffe7c0001,
-                    0xffffffffe740001, 0xffffffffe4c0001,
-                    0xffffffffe440001, 0xffffffffe400001,
-                    0xffffffffdbc0001, 0xffffffffd840001
+                    0x3fffffffd60001, 0x3fffffffca0001, 0x3fffffff6d0001,
+                    0x3fffffff5d0001, 0x3fffffff550001, 0x7fffffffe90001,
+                    0x7fffffffbf0001, 0x7fffffffbd0001, 0x7fffffffba0001,
+                    0x7fffffffaa0001, 0x7fffffffa50001
                 } }
             };
 
@@ -179,110 +177,33 @@ namespace seal
 
                 /*
                 Polynomial modulus: 1x^8192 + 1
-                Modulus count: 2
-                Total bit count: 118 = 2 * 59
+                Modulus count: 3
+                Total bit count: 118 = 2 * 39 + 40
                 */
                 { 8192,{
-                    0x7ffffffffcc0001,  0x7ffffffffb00001
+                    0x7ffffec001, 0x7ffffb0001, 0xfffffdc001
                 } },
 
                 /*
                 Polynomial modulus: 1x^16384 + 1
-                Modulus count: 4
-                Total bit count: 237 = 60 + 3 * 59
+                Modulus count: 5
+                Total bit count: 237 = 3 * 47 + 2 * 48
                 */
                 { 16384,{
-                    0xffffffffffc0001,  0x7ffffffffcc0001,  
-                    0x7ffffffffb00001,  0x7ffffffff2c0001
+                    0x7ffffffc8001, 0x7ffffff00001, 0x7fffffe70001,
+                    0xfffffffd8001, 0xfffffffa0001
                 } },
 
                 /*
                 Polynomial modulus: 1x^32768 + 1
-                Modulus count: 8
-                Total bit count: 476 = 4 * 60 + 4 * 59
+                Modulus count: 9
+                Total bit count: 476 = 52 + 8 * 53
                 */
                 { 32768,{
-                    0xffffffffffc0001,  0xfffffffff840001,  
-                    0xfffffffff240001,  0xffffffffe7c0001,
-                    0x7ffffffffcc0001,  0x7ffffffffb00001,  
-                    0x7ffffffff2c0001,  0x7ffffffff240001
+                    0xffffffff00001, 0x1fffffffe30001, 0x1fffffffd80001,
+                    0x1fffffffd10001, 0x1fffffffc50001, 0x1fffffffbf0001,
+                    0x1fffffffb90001, 0x1fffffffb60001, 0x1fffffffa50001
                 } }
-            };
-
-            const vector<SmallModulus> default_small_mods_60bit{
-                0xffffffffffc0001,  0xfffffffff840001,  0xfffffffff240001,  0xffffffffe7c0001,
-                0xffffffffe740001,  0xffffffffe4c0001,  0xffffffffe440001,  0xffffffffe400001,
-                0xffffffffdbc0001,  0xffffffffd840001,  0xffffffffd680001,  0xffffffffd000001,
-                0xffffffffcf00001,  0xffffffffcdc0001,  0xffffffffcc40001,  0xffffffffc300001,
-                0xffffffffbf40001,  0xffffffffbdc0001,  0xffffffffb880001,  0xffffffffaec0001,
-                0xffffffffa380001,  0xffffffffa200001,  0xffffffffa0c0001,  0xffffffff9600001,
-                0xffffffff91c0001,  0xffffffff8f40001,  0xffffffff8680001,  0xffffffff7e40001,
-                0xffffffff7bc0001,  0xffffffff76c0001,  0xffffffff7680001,  0xffffffff6fc0001,
-                0xffffffff6880001,  0xffffffff6340001,  0xffffffff5d40001,  0xffffffff54c0001,
-                0xffffffff4d40001,  0xffffffff4380001,  0xffffffff3e80001,  0xffffffff37c0001,
-                0xffffffff36c0001,  0xffffffff2100001,  0xffffffff1d80001,  0xffffffff1cc0001,
-                0xffffffff1900001,  0xffffffff1740001,  0xffffffff15c0001,  0xffffffff0e80001,
-                0xfffffffeff80001,  0xfffffffeff40001,  0xfffffffeefc0001,  0xfffffffee8c0001,
-                0xfffffffede40001,  0xfffffffedcc0001,  0xfffffffed040001,  0xfffffffecf40001,
-                0xfffffffecec0001,  0xfffffffecb00001,  0xfffffffec380001,  0xfffffffebb40001,
-                0xfffffffeb200001,  0xfffffffeaf40001,  0xfffffffea700001,  0xfffffffea400001
-            };
-
-            const vector<SmallModulus> default_small_mods_50bit{
-                0x3ffffffb80001,  0x3fffffec80001,  0x3fffffea40001,  0x3fffffe940001,
-                0x3fffffdd40001,  0x3fffffd900001,  0x3fffffd540001,  0x3fffffd500001,
-                0x3fffffcc40001,  0x3fffffcb40001,  0x3fffffc600001,  0x3fffffc4c0001,
-                0x3fffffc3c0001,  0x3fffffc240001,  0x3fffffc0c0001,  0x3fffffbb00001,
-                0x3fffffbac0001,  0x3fffffb800001,  0x3fffffb7c0001,  0x3fffffb580001,
-                0x3fffffafc0001,  0x3fffffaf80001,  0x3fffffaf00001,  0x3fffffac00001,
-                0x3fffffaa40001,  0x3fffffa440001,  0x3fffffa0c0001,  0x3fffff9a00001,
-                0x3fffff9640001,  0x3fffff9300001,  0x3fffff8b80001,  0x3fffff8740001,
-                0x3fffff8340001,  0x3fffff7ec0001,  0x3fffff7e40001,  0x3fffff76c0001,
-                0x3fffff6e80001,  0x3fffff6900001,  0x3fffff6600001,  0x3fffff6580001,
-                0x3fffff6100001,  0x3fffff5d40001,  0x3fffff5ac0001,  0x3fffff55c0001,
-                0x3fffff5400001,  0x3fffff5040001,  0x3fffff4b00001,  0x3fffff4680001,
-                0x3fffff4080001,  0x3fffff3880001,  0x3fffff3400001,  0x3fffff30c0001,
-                0x3fffff2f80001,  0x3fffff2280001,  0x3fffff21c0001,  0x3fffff1e40001,
-                0x3fffff1080001,  0x3fffff0fc0001,  0x3fffff0d00001,  0x3fffff07c0001,
-                0x3fffff0540001,  0x3fffff00c0001,  0x3fffff0040001,  0x3ffffefd00001
-            };
-
-            const vector<SmallModulus> default_small_mods_40bit{
-                0xffffe80001,  0xffffc40001,  0xffff940001,  0xffff780001,
-                0xffff580001,  0xffff480001,  0xffff340001,  0xfffeb00001,
-                0xfffe680001,  0xfffe2c0001,  0xfffe100001,  0xfffd800001,
-                0xfffd080001,  0xfffca00001,  0xfffc940001,  0xfffc880001,
-                0xfffc640001,  0xfffc600001,  0xfffc540001,  0xfffbf40001,
-                0xfffbdc0001,  0xfffbb80001,  0xfffba00001,  0xfffb340001,
-                0xfffaf80001,  0xfffaf00001,  0xfffad80001,  0xfffa800001,
-                0xfffa780001,  0xfffa6c0001,  0xfffa5c0001,  0xfffa240001,
-                0xfffa140001,  0xfff9a80001,  0xfff9880001,  0xfff9240001,
-                0xfff9040001,  0xfff8dc0001,  0xfff8ac0001,  0xfff8a40001,
-                0xfff8800001,  0xfff8440001,  0xfff8340001,  0xfff8080001,
-                0xfff7ec0001,  0xfff6dc0001,  0xfff6cc0001,  0xfff67c0001,
-                0xfff6780001,  0xfff6100001,  0xfff58c0001,  0xfff5440001,
-                0xfff51c0001,  0xfff4d40001,  0xfff3c00001,  0xfff3940001,
-                0xfff36c0001,  0xfff3400001,  0xfff2c80001,  0xfff2b00001,
-                0xfff2680001,  0xfff2440001,  0xfff1e00001,  0xfff1b40001
-            };
-
-            const vector<SmallModulus> default_small_mods_30bit{
-                0x3ffc0001,  0x3fac0001,  0x3f540001,  0x3ef80001,
-                0x3ef40001,  0x3ed00001,  0x3ebc0001,  0x3eb00001,
-                0x3e880001,  0x3e500001,  0x3dd40001,  0x3dcc0001,
-                0x3cfc0001,  0x3cc40001,  0x3cb40001,  0x3c840001,
-                0x3c600001,  0x3c3c0001,  0x3c100001,  0x3bf80001,
-                0x3be80001,  0x3be00001,  0x3b800001,  0x3b580001,
-                0x3b340001,  0x3ac00001,  0x3aa40001,  0x3a6c0001,
-                0x3a5c0001,  0x3a440001,  0x3a300001,  0x3a200001,
-                0x39f00001,  0x39e40001,  0x39c40001,  0x39640001,
-                0x39600001,  0x39280001,  0x391c0001,  0x39100001,
-                0x38b80001,  0x38a00001,  0x388c0001,  0x38680001,
-                0x38400001,  0x38100001,  0x37f00001,  0x37c00001,
-                0x379c0001,  0x37300001,  0x37200001,  0x36d00001,
-                0x36cc0001,  0x36c00001,  0x367c0001,  0x36700001,
-                0x36340001,  0x36240001,  0x361c0001,  0x36180001,
-                0x36100001,  0x35d40001,  0x35ac0001,  0x35a00001
             };
 
             namespace internal_mods

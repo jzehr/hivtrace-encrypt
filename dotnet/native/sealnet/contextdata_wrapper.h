@@ -7,7 +7,7 @@
 //
 // This API is provided as a simple interface for Microsoft SEAL library
 // that can be PInvoked by .Net code.
-// 
+//
 ///////////////////////////////////////////////////////////////////////////
 
 #include "sealnet/defines.h"
@@ -33,6 +33,8 @@ SEALNETNATIVE HRESULT SEALCALL ContextData_PlainUpperHalfIncrement(void *thisptr
 SEALNETNATIVE HRESULT SEALCALL ContextData_UpperHalfThreshold(void *thisptr, uint64_t *count, uint64_t *uht);
 
 SEALNETNATIVE HRESULT SEALCALL ContextData_UpperHalfIncrement(void *thisptr, uint64_t *count, uint64_t *uhi);
+
+SEALNETNATIVE HRESULT SEALCALL ContextData_PrevContextData(void *thisptr, void **prev_data);
 
 SEALNETNATIVE HRESULT SEALCALL ContextData_NextContextData(void *thisptr, void **next_data);
 

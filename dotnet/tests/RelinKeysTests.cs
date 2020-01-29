@@ -19,148 +19,181 @@ namespace SEALNetTest
 
             Assert.IsNotNull(keys);
             Assert.AreEqual(0ul, keys.Size);
-            Assert.AreEqual(0, keys.DecompositionBitCount);
         }
 
         [TestMethod]
         public void CreateNonEmptyRelinKeysTest()
         {
-            SEALContext context = GlobalContext.Context;
+            SEALContext context = GlobalContext.BFVContext;
             KeyGenerator keygen = new KeyGenerator(context);
 
-            RelinKeys keys = keygen.RelinKeys(decompositionBitCount: 30);
+            RelinKeys keys = keygen.RelinKeys();
 
             Assert.IsNotNull(keys);
-            Assert.AreEqual(30, keys.DecompositionBitCount);
             Assert.AreEqual(1ul, keys.Size);
 
             RelinKeys copy = new RelinKeys(keys);
 
             Assert.IsNotNull(copy);
-            Assert.AreEqual(30, copy.DecompositionBitCount);
             Assert.AreEqual(1ul, copy.Size);
 
             RelinKeys copy2 = new RelinKeys();
 
             copy2.Set(keys);
             Assert.IsNotNull(copy2);
-            Assert.AreEqual(30, copy2.DecompositionBitCount);
             Assert.AreEqual(1ul, copy2.Size);
         }
 
         [TestMethod]
         public void SaveLoadTest()
         {
-            SEALContext context = GlobalContext.Context;
+            SEALContext context = GlobalContext.BFVContext;
             KeyGenerator keygen = new KeyGenerator(context);
 
-            RelinKeys keys = keygen.RelinKeys(decompositionBitCount: 30, count: 2);
+            RelinKeys keys = keygen.RelinKeys();
 
             Assert.IsNotNull(keys);
-            Assert.AreEqual(30, keys.DecompositionBitCount);
-            Assert.AreEqual(2ul, keys.Size);
+            Assert.AreEqual(1ul, keys.Size);
 
             RelinKeys other = new RelinKeys();
             MemoryPoolHandle handle = other.Pool;
 
-            Assert.AreEqual(0, other.DecompositionBitCount);
             Assert.AreEqual(0ul, other.Size);
             ulong alloced = handle.AllocByteCount;
 
             using (MemoryStream ms = new MemoryStream())
             {
                 keys.Save(ms);
-
                 ms.Seek(offset: 0, loc: SeekOrigin.Begin);
-
                 other.Load(context, ms);
             }
 
-            Assert.AreEqual(30, other.DecompositionBitCount);
-            Assert.AreEqual(2ul, other.Size);
-            Assert.IsTrue(other.IsMetadataValidFor(context));
+            Assert.AreEqual(1ul, other.Size);
+            Assert.IsTrue(ValCheck.IsValidFor(other, context));
             Assert.IsTrue(handle.AllocByteCount > 0ul);
 
-            List<IEnumerable<Ciphertext>> keysData = new List<IEnumerable<Ciphertext>>(keys.Data);
-            List<IEnumerable<Ciphertext>> otherData = new List<IEnumerable<Ciphertext>>(other.Data);
+            List<IEnumerable<PublicKey>> keysData = new List<IEnumerable<PublicKey>>(keys.Data);
+            List<IEnumerable<PublicKey>> otherData = new List<IEnumerable<PublicKey>>(other.Data);
 
             Assert.AreEqual(keysData.Count, otherData.Count);
             for (int i = 0; i < keysData.Count; i++)
             {
-                List<Ciphertext> keysCiphers = new List<Ciphertext>(keysData[i]);
-                List<Ciphertext> otherCiphers = new List<Ciphertext>(otherData[i]);
+                List<PublicKey> keysCiphers = new List<PublicKey>(keysData[i]);
+                List<PublicKey> otherCiphers = new List<PublicKey>(otherData[i]);
 
                 Assert.AreEqual(keysCiphers.Count, otherCiphers.Count);
 
                 for (int j = 0; j < keysCiphers.Count; j++)
                 {
-                    Ciphertext keysCipher = keysCiphers[j];
-                    Ciphertext otherCipher = otherCiphers[j];
+                    PublicKey keysCipher = keysCiphers[j];
+                    PublicKey otherCipher = otherCiphers[j];
 
-                    Assert.AreEqual(keysCipher.Size, otherCipher.Size);
-                    Assert.AreEqual(keysCipher.PolyModulusDegree, otherCipher.PolyModulusDegree);
-                    Assert.AreEqual(keysCipher.CoeffModCount, otherCipher.CoeffModCount);
+                    Assert.AreEqual(keysCipher.Data.Size, otherCipher.Data.Size);
+                    Assert.AreEqual(keysCipher.Data.PolyModulusDegree, otherCipher.Data.PolyModulusDegree);
+                    Assert.AreEqual(keysCipher.Data.CoeffModCount, otherCipher.Data.CoeffModCount);
 
-                    ulong coeffCount = keysCipher.Size * keysCipher.PolyModulusDegree * keysCipher.CoeffModCount;
+                    ulong coeffCount = keysCipher.Data.Size * keysCipher.Data.PolyModulusDegree * keysCipher.Data.CoeffModCount;
                     for (ulong k = 0; k < coeffCount; k++)
                     {
-                        Assert.AreEqual(keysCipher[k], otherCipher[k]);
+                        Assert.AreEqual(keysCipher.Data[k], otherCipher.Data[k]);
                     }
                 }
             }
         }
-        
+
+        [TestMethod]
+        public void SeededKeyTest()
+        {
+            EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV)
+            {
+                PolyModulusDegree = 128,
+                PlainModulus = new SmallModulus(1 << 6),
+                CoeffModulus = CoeffModulus.Create(128, new int[] { 40, 40, 40 })
+            };
+            SEALContext context = new SEALContext(parms,
+                expandModChain: false,
+                secLevel: SecLevelType.None);
+            KeyGenerator keygen = new KeyGenerator(context);
+
+            RelinKeys relinKeys = new RelinKeys();
+            using (MemoryStream stream = new MemoryStream())
+            {
+                keygen.RelinKeysSave(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+                relinKeys.Load(context, stream);
+            }
+
+            Encryptor encryptor = new Encryptor(context, keygen.PublicKey);
+            Decryptor decryptor = new Decryptor(context, keygen.SecretKey);
+            Evaluator evaluator = new Evaluator(context);
+
+            Ciphertext encrypted1 = new Ciphertext(context);
+            Ciphertext encrypted2 = new Ciphertext(context);
+            Plaintext plain1 = new Plaintext();
+            Plaintext plain2 = new Plaintext();
+
+            plain1.Set(0);
+            encryptor.Encrypt(plain1, encrypted1);
+            evaluator.SquareInplace(encrypted1);
+            evaluator.RelinearizeInplace(encrypted1, relinKeys);
+            decryptor.Decrypt(encrypted1, plain2);
+
+            Assert.AreEqual(1ul, plain2.CoeffCount);
+            Assert.AreEqual(0ul, plain2[0]);
+
+            plain1.Set("1x^10 + 2");
+            encryptor.Encrypt(plain1, encrypted1);
+            evaluator.SquareInplace(encrypted1);
+            evaluator.RelinearizeInplace(encrypted1, relinKeys);
+            evaluator.SquareInplace(encrypted1);
+            evaluator.Relinearize(encrypted1, relinKeys, encrypted2);
+            decryptor.Decrypt(encrypted2, plain2);
+
+            // {1x^40 + 8x^30 + 18x^20 + 20x^10 + 10}
+            Assert.AreEqual(41ul, plain2.CoeffCount);
+            Assert.AreEqual(16ul, plain2[0]);
+            Assert.AreEqual(32ul, plain2[10]);
+            Assert.AreEqual(24ul, plain2[20]);
+            Assert.AreEqual(8ul,  plain2[30]);
+            Assert.AreEqual(1ul,  plain2[40]);
+        }
+
         [TestMethod]
         public void GetKeyTest()
         {
-            SEALContext context = GlobalContext.Context;
+            SEALContext context = GlobalContext.BFVContext;
             KeyGenerator keygen = new KeyGenerator(context);
-            RelinKeys relinKeys = keygen.RelinKeys(decompositionBitCount: 60, count: 3);
+            RelinKeys relinKeys = keygen.RelinKeys();
 
-            Assert.IsFalse(relinKeys.HasKey(0));
-            Assert.IsFalse(relinKeys.HasKey(1));
             Assert.IsTrue(relinKeys.HasKey(2));
-            Assert.IsTrue(relinKeys.HasKey(3));
-            Assert.IsTrue(relinKeys.HasKey(4));
-            Assert.IsFalse(relinKeys.HasKey(5));
+            Assert.IsFalse(relinKeys.HasKey(3));
 
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => relinKeys.Key(1));
+            Utilities.AssertThrows<ArgumentException>(() => relinKeys.Key(0));
+            Utilities.AssertThrows<ArgumentException>(() => relinKeys.Key(1));
 
-            List<Ciphertext> key1 = new List<Ciphertext>(relinKeys.Key(2));
-            Assert.AreEqual(2, key1.Count);
-            Assert.AreEqual(2ul, key1[0].CoeffModCount);
-            Assert.AreEqual(2ul, key1[1].CoeffModCount);
-
-            List<Ciphertext> key2 = new List<Ciphertext>(relinKeys.Key(3));
-            Assert.AreEqual(2, key2.Count);
-            Assert.AreEqual(2ul, key2[0].CoeffModCount);
-            Assert.AreEqual(2ul, key2[1].CoeffModCount);
-
-            List<Ciphertext> key3 = new List<Ciphertext>(relinKeys.Key(4));
-            Assert.AreEqual(2, key3.Count);
-            Assert.AreEqual(2ul, key3[0].CoeffModCount);
-            Assert.AreEqual(2ul, key3[1].CoeffModCount);
+            List<PublicKey> key1 = new List<PublicKey>(relinKeys.Key(2));
+            Assert.AreEqual(4, key1.Count);
+            Assert.AreEqual(5ul, key1[0].Data.CoeffModCount);
         }
 
         [TestMethod]
         public void ExceptionsTest()
         {
             RelinKeys keys = new RelinKeys();
-            SEALContext context = GlobalContext.Context;
+            SEALContext context = GlobalContext.BFVContext;
 
-            Assert.ThrowsException<ArgumentNullException>(() => keys = new RelinKeys(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys = new RelinKeys(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.Set(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => keys.Set(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => ValCheck.IsValidFor(keys, null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => keys.IsValidFor(null));
-            Assert.ThrowsException<ArgumentNullException>(() => keys.IsMetadataValidFor(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.Save(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => keys.Save(null));
-
-            Assert.ThrowsException<ArgumentNullException>(() => keys.Load(context, null));
-            Assert.ThrowsException<ArgumentNullException>(() => keys.Load(null, new MemoryStream()));
-            Assert.ThrowsException<ArgumentException>(() => keys.Load(context, new MemoryStream()));
-            Assert.ThrowsException<ArgumentNullException>(() => keys.UnsafeLoad(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.Load(context, null));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.Load(null, new MemoryStream()));
+            Utilities.AssertThrows<EndOfStreamException>(() => keys.Load(context, new MemoryStream()));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.UnsafeLoad(null, new MemoryStream()));
+            Utilities.AssertThrows<ArgumentNullException>(() => keys.UnsafeLoad(context, null));
         }
     }
 }

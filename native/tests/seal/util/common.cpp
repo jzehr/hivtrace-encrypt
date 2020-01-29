@@ -68,6 +68,8 @@ namespace SEALTest
             unsigned char pos_uc_max = 0xFF;
             unsigned long long pos_ull_max = 0xFFFFFFFFFFFFFFFF;
             long long neg_ull = -1;
+            SEAL_MAYBE_UNUSED unsigned long long res_ul;
+            SEAL_MAYBE_UNUSED long long res_l;
 
             ASSERT_EQ(25, mul_safe(pos_i, pos_i));
             ASSERT_EQ(25, mul_safe(neg_i, neg_i));
@@ -78,21 +80,21 @@ namespace SEALTest
             ASSERT_EQ(10, sub_safe(pos_i, neg_i));
             ASSERT_EQ(-10, sub_safe(neg_i, pos_i));
             ASSERT_EQ(unsigned(0), sub_safe(pos_u, pos_u));
-            ASSERT_THROW(sub_safe(unsigned(0), pos_u), out_of_range);
-            ASSERT_THROW(sub_safe(unsigned(4), pos_u), out_of_range);
-            ASSERT_THROW(add_safe(pos_uc_max, (unsigned char)1), out_of_range);
+            ASSERT_THROW(res_ul = sub_safe(unsigned(0), pos_u), logic_error);
+            ASSERT_THROW(res_ul = sub_safe(unsigned(4), pos_u), logic_error);
+            ASSERT_THROW(res_ul = add_safe(pos_uc_max, (unsigned char)1), logic_error);
             ASSERT_TRUE(pos_uc_max == add_safe(pos_uc_max, (unsigned char)0));
-            ASSERT_THROW(mul_safe(pos_ull_max, pos_ull_max), out_of_range);
+            ASSERT_THROW(res_ul = mul_safe(pos_ull_max, pos_ull_max), logic_error);
             ASSERT_EQ(0ULL, mul_safe(0ULL, pos_ull_max));
             ASSERT_TRUE((long long)1 == mul_safe(neg_ull, neg_ull));
-            ASSERT_THROW(mul_safe(pos_uc_max, pos_uc_max), out_of_range);
+            ASSERT_THROW(res_ul = mul_safe(pos_uc_max, pos_uc_max), logic_error);
             ASSERT_EQ(15, add_safe(pos_i, -pos_i, pos_i, pos_i, pos_i));
             ASSERT_EQ(6, add_safe(0, -pos_i, pos_i, 1, pos_i));
             ASSERT_EQ(0, mul_safe(pos_i, pos_i, pos_i, 0, pos_i));
             ASSERT_EQ(625, mul_safe(pos_i, pos_i, pos_i, pos_i));
-            ASSERT_THROW(mul_safe(
+            ASSERT_THROW(res_l = mul_safe(
                 pos_i, pos_i, pos_i, pos_i, pos_i, pos_i, pos_i,
-                pos_i, pos_i, pos_i, pos_i, pos_i, pos_i, pos_i), out_of_range);
+                pos_i, pos_i, pos_i, pos_i, pos_i, pos_i, pos_i), logic_error);
         }
 
         TEST(Common, FitsIn)
@@ -154,91 +156,133 @@ namespace SEALTest
             ASSERT_TRUE(SEAL_BYTE(0x23) == *get_uint64_byte(number, 15));
         }
 
-        TEST(Common, ReverseBits32)
+        template<typename T>
+        void ReverseBits32Helper()
         {
-            ASSERT_EQ(static_cast<uint32_t>(0), reverse_bits(static_cast<uint32_t>(0)));
-            ASSERT_EQ(static_cast<uint32_t>(0x80000000), reverse_bits(static_cast<uint32_t>(1)));
-            ASSERT_EQ(static_cast<uint32_t>(0x40000000), reverse_bits(static_cast<uint32_t>(2)));
-            ASSERT_EQ(static_cast<uint32_t>(0xC0000000), reverse_bits(static_cast<uint32_t>(3)));
-            ASSERT_EQ(static_cast<uint32_t>(0x00010000), reverse_bits(static_cast<uint32_t>(0x00008000)));
-            ASSERT_EQ(static_cast<uint32_t>(0xFFFF0000), reverse_bits(static_cast<uint32_t>(0x0000FFFF)));
-            ASSERT_EQ(static_cast<uint32_t>(0x0000FFFF), reverse_bits(static_cast<uint32_t>(0xFFFF0000)));
-            ASSERT_EQ(static_cast<uint32_t>(0x00008000), reverse_bits(static_cast<uint32_t>(0x00010000)));
-            ASSERT_EQ(static_cast<uint32_t>(3), reverse_bits(static_cast<uint32_t>(0xC0000000)));
-            ASSERT_EQ(static_cast<uint32_t>(2), reverse_bits(static_cast<uint32_t>(0x40000000)));
-            ASSERT_EQ(static_cast<uint32_t>(1), reverse_bits(static_cast<uint32_t>(0x80000000)));
-            ASSERT_EQ(static_cast<uint32_t>(0xFFFFFFFF), reverse_bits(static_cast<uint32_t>(0xFFFFFFFF)));
+            ASSERT_EQ(static_cast<T>(0), reverse_bits(static_cast<T>(0)));
+            ASSERT_EQ(static_cast<T>(0x80000000), reverse_bits(static_cast<T>(1)));
+            ASSERT_EQ(static_cast<T>(0x40000000), reverse_bits(static_cast<T>(2)));
+            ASSERT_EQ(static_cast<T>(0xC0000000), reverse_bits(static_cast<T>(3)));
+            ASSERT_EQ(static_cast<T>(0x00010000), reverse_bits(static_cast<T>(0x00008000)));
+            ASSERT_EQ(static_cast<T>(0xFFFF0000), reverse_bits(static_cast<T>(0x0000FFFF)));
+            ASSERT_EQ(static_cast<T>(0x0000FFFF), reverse_bits(static_cast<T>(0xFFFF0000)));
+            ASSERT_EQ(static_cast<T>(0x00008000), reverse_bits(static_cast<T>(0x00010000)));
+            ASSERT_EQ(static_cast<T>(3), reverse_bits(static_cast<T>(0xC0000000)));
+            ASSERT_EQ(static_cast<T>(2), reverse_bits(static_cast<T>(0x40000000)));
+            ASSERT_EQ(static_cast<T>(1), reverse_bits(static_cast<T>(0x80000000)));
+            ASSERT_EQ(static_cast<T>(0xFFFFFFFF), reverse_bits(static_cast<T>(0xFFFFFFFF)));
 
             // Reversing a 0-bit item should return 0
-            ASSERT_EQ(static_cast<uint32_t>(0), reverse_bits(static_cast<uint32_t>(0xFFFFFFFF), 0));
+            ASSERT_EQ(static_cast<T>(0), reverse_bits(static_cast<T>(0xFFFFFFFF), 0));
 
             // Reversing a 32-bit item returns is same as normal reverse
-            ASSERT_EQ(static_cast<uint32_t>(0), reverse_bits(static_cast<uint32_t>(0), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0x80000000), reverse_bits(static_cast<uint32_t>(1), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0x40000000), reverse_bits(static_cast<uint32_t>(2), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0xC0000000), reverse_bits(static_cast<uint32_t>(3), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0x00010000), reverse_bits(static_cast<uint32_t>(0x00008000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0xFFFF0000), reverse_bits(static_cast<uint32_t>(0x0000FFFF), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0x0000FFFF), reverse_bits(static_cast<uint32_t>(0xFFFF0000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0x00008000), reverse_bits(static_cast<uint32_t>(0x00010000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(3), reverse_bits(static_cast<uint32_t>(0xC0000000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(2), reverse_bits(static_cast<uint32_t>(0x40000000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(1), reverse_bits(static_cast<uint32_t>(0x80000000), 32));
-            ASSERT_EQ(static_cast<uint32_t>(0xFFFFFFFF), reverse_bits(static_cast<uint32_t>(0xFFFFFFFF), 32));
+            ASSERT_EQ(static_cast<T>(0), reverse_bits(static_cast<T>(0), 32));
+            ASSERT_EQ(static_cast<T>(0x80000000), reverse_bits(static_cast<T>(1), 32));
+            ASSERT_EQ(static_cast<T>(0x40000000), reverse_bits(static_cast<T>(2), 32));
+            ASSERT_EQ(static_cast<T>(0xC0000000), reverse_bits(static_cast<T>(3), 32));
+            ASSERT_EQ(static_cast<T>(0x00010000), reverse_bits(static_cast<T>(0x00008000), 32));
+            ASSERT_EQ(static_cast<T>(0xFFFF0000), reverse_bits(static_cast<T>(0x0000FFFF), 32));
+            ASSERT_EQ(static_cast<T>(0x0000FFFF), reverse_bits(static_cast<T>(0xFFFF0000), 32));
+            ASSERT_EQ(static_cast<T>(0x00008000), reverse_bits(static_cast<T>(0x00010000), 32));
+            ASSERT_EQ(static_cast<T>(3), reverse_bits(static_cast<T>(0xC0000000), 32));
+            ASSERT_EQ(static_cast<T>(2), reverse_bits(static_cast<T>(0x40000000), 32));
+            ASSERT_EQ(static_cast<T>(1), reverse_bits(static_cast<T>(0x80000000), 32));
+            ASSERT_EQ(static_cast<T>(0xFFFFFFFF), reverse_bits(static_cast<T>(0xFFFFFFFF), 32));
 
             // 16-bit reversal
-            ASSERT_EQ(static_cast<uint32_t>(0), reverse_bits(static_cast<uint32_t>(0), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x00008000), reverse_bits(static_cast<uint32_t>(1), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x00004000), reverse_bits(static_cast<uint32_t>(2), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x0000C000), reverse_bits(static_cast<uint32_t>(3), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x00000001), reverse_bits(static_cast<uint32_t>(0x00008000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x0000FFFF), reverse_bits(static_cast<uint32_t>(0x0000FFFF), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x00000000), reverse_bits(static_cast<uint32_t>(0xFFFF0000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x00000000), reverse_bits(static_cast<uint32_t>(0x00010000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(3), reverse_bits(static_cast<uint32_t>(0x0000C000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(2), reverse_bits(static_cast<uint32_t>(0x00004000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(1), reverse_bits(static_cast<uint32_t>(0x00008000), 16));
-            ASSERT_EQ(static_cast<uint32_t>(0x0000FFFF), reverse_bits(static_cast<uint32_t>(0xFFFFFFFF), 16));
+            ASSERT_EQ(static_cast<T>(0), reverse_bits(static_cast<T>(0), 16));
+            ASSERT_EQ(static_cast<T>(0x00008000), reverse_bits(static_cast<T>(1), 16));
+            ASSERT_EQ(static_cast<T>(0x00004000), reverse_bits(static_cast<T>(2), 16));
+            ASSERT_EQ(static_cast<T>(0x0000C000), reverse_bits(static_cast<T>(3), 16));
+            ASSERT_EQ(static_cast<T>(0x00000001), reverse_bits(static_cast<T>(0x00008000), 16));
+            ASSERT_EQ(static_cast<T>(0x0000FFFF), reverse_bits(static_cast<T>(0x0000FFFF), 16));
+            ASSERT_EQ(static_cast<T>(0x00000000), reverse_bits(static_cast<T>(0xFFFF0000), 16));
+            ASSERT_EQ(static_cast<T>(0x00000000), reverse_bits(static_cast<T>(0x00010000), 16));
+            ASSERT_EQ(static_cast<T>(3), reverse_bits(static_cast<T>(0x0000C000), 16));
+            ASSERT_EQ(static_cast<T>(2), reverse_bits(static_cast<T>(0x00004000), 16));
+            ASSERT_EQ(static_cast<T>(1), reverse_bits(static_cast<T>(0x00008000), 16));
+            ASSERT_EQ(static_cast<T>(0x0000FFFF), reverse_bits(static_cast<T>(0xFFFFFFFF), 16));
+        }
+
+        TEST(Common, ReverseBits32)
+        {
+            ReverseBits32Helper<uint32_t>();
+
+            // Other types
+#ifdef SEAL_USE_IF_CONSTEXPR
+            SEAL_IF_CONSTEXPR (sizeof(unsigned) == 4)
+                ReverseBits32Helper<unsigned>();
+
+            SEAL_IF_CONSTEXPR (sizeof(unsigned long) == 4)
+                ReverseBits32Helper<unsigned long>();
+
+            SEAL_IF_CONSTEXPR (sizeof(unsigned long long) == 4)
+                ReverseBits32Helper<unsigned long long>();
+
+            SEAL_IF_CONSTEXPR (sizeof(size_t) == 4)
+                ReverseBits32Helper<size_t>();
+#endif
+        }
+
+        template<typename T>
+        void ReverseBits64Helper()
+        {
+            ASSERT_EQ(0ULL, reverse_bits<T>(0ULL));
+            ASSERT_EQ(1ULL << 63, reverse_bits<T>(1ULL));
+            ASSERT_EQ(1ULL << 32, reverse_bits<T>(1ULL << 31));
+            ASSERT_EQ(0xFFFFULL << 32, reverse_bits<T>(0xFFFFULL << 16));
+            ASSERT_EQ(0x0000FFFFFFFF0000ULL, reverse_bits<T>(0x0000FFFFFFFF0000ULL));
+            ASSERT_EQ(0x0000FFFF0000FFFFULL, reverse_bits<T>(0xFFFF0000FFFF0000ULL));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(0ULL, 0));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0ULL, 1));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0ULL, 32));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0ULL, 64));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(1ULL, 0));
+            ASSERT_EQ(1ULL, reverse_bits<T>(1ULL, 1));
+            ASSERT_EQ(1ULL << 31, reverse_bits<T>(1ULL, 32));
+            ASSERT_EQ(1ULL << 63, reverse_bits<T>(1ULL, 64));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(1ULL << 31, 0));
+            ASSERT_EQ(0ULL, reverse_bits<T>(1ULL << 31, 1));
+            ASSERT_EQ(1ULL, reverse_bits<T>(1ULL << 31, 32));
+            ASSERT_EQ(1ULL << 32, reverse_bits<T>(1ULL << 31, 64));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(0xFFFFULL << 16, 0));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0xFFFFULL << 16, 1));
+            ASSERT_EQ(0xFFFFULL, reverse_bits<T>(0xFFFFULL << 16, 32));
+            ASSERT_EQ(0xFFFFULL << 32, reverse_bits<T>(0xFFFFULL << 16, 64));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(0x0000FFFFFFFF0000ULL, 0));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0x0000FFFFFFFF0000ULL, 1));
+            ASSERT_EQ(0xFFFFULL, reverse_bits<T>(0x0000FFFFFFFF0000ULL, 32));
+            ASSERT_EQ(0x0000FFFFFFFF0000ULL, reverse_bits<T>(0x0000FFFFFFFF0000ULL, 64));
+
+            ASSERT_EQ(0ULL, reverse_bits<T>(0xFFFF0000FFFF0000ULL, 0));
+            ASSERT_EQ(0ULL, reverse_bits<T>(0xFFFF0000FFFF0000ULL, 1));
+            ASSERT_EQ(0xFFFFULL, reverse_bits<T>(0xFFFF0000FFFF0000ULL, 32));
+            ASSERT_EQ(0x0000FFFF0000FFFFULL, reverse_bits<T>(0xFFFF0000FFFF0000ULL, 64));
         }
 
         TEST(Common, ReverseBits64)
         {
-            ASSERT_EQ(0ULL, reverse_bits(0ULL));
-            ASSERT_EQ(1ULL << 63, reverse_bits(1ULL));
-            ASSERT_EQ(1ULL << 32, reverse_bits(1ULL << 31));
-            ASSERT_EQ(0xFFFFULL << 32, reverse_bits(0xFFFFULL << 16));
-            ASSERT_EQ(0x0000FFFFFFFF0000ULL, reverse_bits(0x0000FFFFFFFF0000ULL));
-            ASSERT_EQ(0x0000FFFF0000FFFFULL, reverse_bits(0xFFFF0000FFFF0000ULL));
+            ReverseBits64Helper<uint64_t>();
 
-            ASSERT_EQ(0ULL, reverse_bits(0ULL, 0));
-            ASSERT_EQ(0ULL, reverse_bits(0ULL, 1));
-            ASSERT_EQ(0ULL, reverse_bits(0ULL, 32));
-            ASSERT_EQ(0ULL, reverse_bits(0ULL, 64));
+            // Other types
+#ifdef SEAL_USE_IF_CONSTEXPR
+            SEAL_IF_CONSTEXPR (sizeof(unsigned) == 8)
+                ReverseBits64Helper<unsigned>();
 
-            ASSERT_EQ(0ULL, reverse_bits(1ULL, 0));
-            ASSERT_EQ(1ULL, reverse_bits(1ULL, 1));
-            ASSERT_EQ(1ULL << 31, reverse_bits(1ULL, 32));
-            ASSERT_EQ(1ULL << 63, reverse_bits(1ULL, 64));
+            SEAL_IF_CONSTEXPR (sizeof(unsigned long) == 8)
+                ReverseBits64Helper<unsigned long>();
 
-            ASSERT_EQ(0ULL, reverse_bits(1ULL << 31, 0));
-            ASSERT_EQ(0ULL, reverse_bits(1ULL << 31, 1));
-            ASSERT_EQ(1ULL, reverse_bits(1ULL << 31, 32));
-            ASSERT_EQ(1ULL << 32, reverse_bits(1ULL << 31, 64));
+            SEAL_IF_CONSTEXPR (sizeof(unsigned long long) == 8)
+                ReverseBits64Helper<unsigned long long>();
 
-            ASSERT_EQ(0ULL, reverse_bits(0xFFFFULL << 16, 0));
-            ASSERT_EQ(0ULL, reverse_bits(0xFFFFULL << 16, 1));
-            ASSERT_EQ(0xFFFFULL, reverse_bits(0xFFFFULL << 16, 32));
-            ASSERT_EQ(0xFFFFULL << 32, reverse_bits(0xFFFFULL << 16, 64));
-
-            ASSERT_EQ(0ULL, reverse_bits(0x0000FFFFFFFF0000ULL, 0));
-            ASSERT_EQ(0ULL, reverse_bits(0x0000FFFFFFFF0000ULL, 1));
-            ASSERT_EQ(0xFFFFULL, reverse_bits(0x0000FFFFFFFF0000ULL, 32));
-            ASSERT_EQ(0x0000FFFFFFFF0000ULL, reverse_bits(0x0000FFFFFFFF0000ULL, 64));
-
-            ASSERT_EQ(0ULL, reverse_bits(0xFFFF0000FFFF0000ULL, 0));
-            ASSERT_EQ(0ULL, reverse_bits(0xFFFF0000FFFF0000ULL, 1));
-            ASSERT_EQ(0xFFFFULL, reverse_bits(0xFFFF0000FFFF0000ULL, 32));
-            ASSERT_EQ(0x0000FFFF0000FFFFULL, reverse_bits(0xFFFF0000FFFF0000ULL, 64));
+            SEAL_IF_CONSTEXPR (sizeof(size_t) == 8)
+                ReverseBits64Helper<size_t>();
+#endif
         }
 
         TEST(Common, GetSignificantBitCount)

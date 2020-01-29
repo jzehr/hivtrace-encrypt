@@ -82,13 +82,22 @@ SEALNETNATIVE HRESULT SEALCALL EPQ_UsingFastPlainLift(void *thisptr, bool *using
     return S_OK;
 }
 
-SEALNETNATIVE HRESULT SEALCALL EPQ_UsingHEStdSecurity(void *thisptr, bool *using_HE_std_security)
+SEALNETNATIVE HRESULT SEALCALL EPQ_UsingDescendingModulusChain(void *thisptr, bool *using_descending_modulus_chain)
 {
     EncryptionParameterQualifiers *epq = FromVoid<EncryptionParameterQualifiers>(thisptr);
     IfNullRet(epq, E_POINTER);
-    IfNullRet(using_HE_std_security, E_POINTER);
+    IfNullRet(using_descending_modulus_chain, E_POINTER);
 
-    *using_HE_std_security = epq->using_he_std_security;
+    *using_descending_modulus_chain = epq->using_descending_modulus_chain;
     return S_OK;
 }
 
+SEALNETNATIVE HRESULT SEALCALL EPQ_SecLevel(void *thisptr, int *sec_level)
+{
+    EncryptionParameterQualifiers *epq = FromVoid<EncryptionParameterQualifiers>(thisptr);
+    IfNullRet(epq, E_POINTER);
+    IfNullRet(sec_level, E_POINTER);
+
+    *sec_level = static_cast<int>(epq->sec_level);
+    return S_OK;
+}

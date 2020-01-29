@@ -8,17 +8,21 @@
 #include "seal/randomtostd.h"
 #include "seal/smallmodulus.h"
 #include "seal/util/common.h"
+#include "seal/util/uintcore.h"
+#include "seal/util/uintarithmod.h"
+#include "seal/util/uintarithsmallmod.h"
 #include "seal/util/uintarith.h"
 #include "seal/util/polyarithsmallmod.h"
 #include "seal/util/clipnormal.h"
 #include "seal/util/smallntt.h"
+#include "seal/util/rlwe.h"
+#include "seal/util/scalingvariant.h"
 
 using namespace std;
-using namespace seal::util;
 
 namespace seal
 {
-    Encryptor::Encryptor(shared_ptr<SEALContext> context, 
+    Encryptor::Encryptor(shared_ptr<SEALContext> context,
         const PublicKey &public_key) : context_(move(context))
     {
         // Verify parameters
@@ -30,30 +34,82 @@ namespace seal
         {
             throw invalid_argument("encryption parameters are not set correctly");
         }
-        if (public_key.parms_id() != context_->first_parms_id())
-        {
-            throw invalid_argument("public key is not valid for encryption parameters");
-        }
 
-        auto &parms = context_->context_data()->parms();
+        set_public_key(public_key);
+
+        auto &parms = context_->key_context_data()->parms();
         auto &coeff_modulus = parms.coeff_modulus();
         size_t coeff_count = parms.poly_modulus_degree();
         size_t coeff_mod_count = coeff_modulus.size();
 
         // Quick sanity check
-        if (!product_fits_in(coeff_count, coeff_mod_count, size_t(2)))
+        if (!util::product_fits_in(coeff_count, coeff_mod_count, size_t(2)))
         {
             throw logic_error("invalid parameters");
         }
-        
-        // Allocate space and copy over key
-        public_key_ = allocate_poly(2 * coeff_count, coeff_mod_count, pool_);
-        set_poly_poly(public_key.data().data(0), 2 * coeff_count, coeff_mod_count, 
-            public_key_.get());
     }
 
-    void Encryptor::encrypt(const Plaintext &plain, 
-        Ciphertext &destination, MemoryPoolHandle pool)
+    Encryptor::Encryptor(shared_ptr<SEALContext> context,
+        const SecretKey &secret_key) : context_(move(context))
+    {
+        // Verify parameters
+        if (!context_)
+        {
+            throw invalid_argument("invalid context");
+        }
+        if (!context_->parameters_set())
+        {
+            throw invalid_argument("encryption parameters are not set correctly");
+        }
+
+        set_secret_key(secret_key);
+
+        auto &parms = context_->key_context_data()->parms();
+        auto &coeff_modulus = parms.coeff_modulus();
+        size_t coeff_count = parms.poly_modulus_degree();
+        size_t coeff_mod_count = coeff_modulus.size();
+
+        // Quick sanity check
+        if (!util::product_fits_in(coeff_count, coeff_mod_count, size_t(2)))
+        {
+            throw logic_error("invalid parameters");
+        }
+    }
+
+    Encryptor::Encryptor(shared_ptr<SEALContext> context,
+        const PublicKey &public_key, const SecretKey &secret_key)
+        : context_(move(context))
+    {
+        // Verify parameters
+        if (!context_)
+        {
+            throw invalid_argument("invalid context");
+        }
+        if (!context_->parameters_set())
+        {
+            throw invalid_argument("encryption parameters are not set correctly");
+        }
+
+        set_public_key(public_key);
+        set_secret_key(secret_key);
+
+        auto &parms = context_->key_context_data()->parms();
+        auto &coeff_modulus = parms.coeff_modulus();
+        size_t coeff_count = parms.poly_modulus_degree();
+        size_t coeff_mod_count = coeff_modulus.size();
+
+        // Quick sanity check
+        if (!util::product_fits_in(coeff_count, coeff_mod_count, size_t(2)))
+        {
+            throw logic_error("invalid parameters");
+        }
+    }
+
+    void Encryptor::encrypt_zero_internal(
+        parms_id_type parms_id,
+        bool is_asymmetric, bool save_seed,
+        Ciphertext &destination,
+        MemoryPoolHandle pool) const
     {
         // Verify parameters.
         if (!pool)
@@ -61,341 +117,167 @@ namespace seal
             throw invalid_argument("pool is uninitialized");
         }
 
-        // Verify that plain is valid.
-        if (!plain.is_valid_for(context_))
-        {
-            throw invalid_argument("plain is not valid for encryption parameters");
-        }
-
-        auto &context_data = *context_->context_data();
-        auto &parms = context_data.parms();
-
-        switch (parms.scheme())
-        {
-        case scheme_type::BFV:
-            bfv_encrypt(plain, destination, move(pool));
-            return;
-
-        case scheme_type::CKKS:
-            ckks_encrypt(plain, destination, move(pool));
-            return;
-
-        default:
-            throw invalid_argument("unsupported scheme");
-        }
-    }
-
-    void Encryptor::bfv_encrypt(const Plaintext &plain, 
-        Ciphertext &destination, MemoryPoolHandle pool)
-    {
-        if (plain.is_ntt_form())
-        {
-            throw invalid_argument("plain cannot be in NTT form");
-        }
-
-        auto &context_data = *context_->context_data();
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t first_coeff_mod_count = 
-            context_->context_data()->parms().coeff_modulus().size();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        auto &small_ntt_tables = context_data.small_ntt_tables();
-
-        // Make destination have right size and parms_id
-        destination.resize(context_, parms.parms_id(), 2);
-        destination.is_ntt_form() = false;
-
-        /*
-        Ciphertext (c_0,c_1)
-        c_0 = Delta * m + public_key_[0] * u + e_1 where u sampled from R_3 and e_1 sampled from chi.
-        c_1 = public_key_[1] * u + e_2 where e_2 sampled from chi.
-        */
-
-        // Generate u 
-        auto u(allocate_poly(coeff_count, coeff_mod_count, pool));
-        shared_ptr<UniformRandomGenerator> random(parms.random_generator()->create());
-        
-        set_poly_coeffs_zero_one_negone(u.get(), random, context_data);
-
-        // Multiply both u * public_key_[0] and u * public_key_[1] using the same FFT
-        for (size_t i = 0; i < coeff_mod_count; i++)
-        {
-            ntt_negacyclic_harvey_lazy(u.get() + (i * coeff_count), small_ntt_tables[i]);
-
-            dyadic_product_coeffmod(u.get() + (i * coeff_count), 
-                public_key_.get() + (i * coeff_count), coeff_count, 
-                coeff_modulus[i], destination.data() + (i * coeff_count));
-            inverse_ntt_negacyclic_harvey(destination.data() + (i * coeff_count), 
-                small_ntt_tables[i]);
-
-            dyadic_product_coeffmod(u.get() + (i * coeff_count), 
-                public_key_.get() + (coeff_count * first_coeff_mod_count) + (i * coeff_count), 
-                coeff_count, coeff_modulus[i], destination.data(1) + (i * coeff_count));
-            inverse_ntt_negacyclic_harvey(destination.data(1) + (i * coeff_count), 
-                small_ntt_tables[i]);
-        }
-
-        // Multiply plain by scalar coeff_div_plaintext and reposition if in upper-half.
-        // Result gets added into the c_0 term of ciphertext (c_0,c_1).
-        preencrypt(plain.data(), plain.coeff_count(), context_data, destination.data());
-
-        // Generate e_0, add this value into destination[0].
-        set_poly_coeffs_normal(u.get(), random, context_data);
-        for (size_t i = 0; i < coeff_mod_count; i++)
-        {
-            add_poly_poly_coeffmod(u.get() + (i * coeff_count), 
-                destination.data() + (i * coeff_count), coeff_count, 
-                coeff_modulus[i], destination.data() + (i * coeff_count));
-        }
-        // Generate e_1, add this value into destination[1].
-        set_poly_coeffs_normal(u.get(), random, context_data);
-        for (size_t i = 0; i < coeff_mod_count; i++)
-        {
-            add_poly_poly_coeffmod(u.get() + (i * coeff_count), 
-                destination.data(1) + (i * coeff_count), coeff_count, 
-                coeff_modulus[i], destination.data(1) + (i * coeff_count));
-        }
-    }
-
-    void Encryptor::ckks_encrypt(const Plaintext &plain, 
-        Ciphertext &destination, MemoryPoolHandle pool)
-    {
-        if (!plain.is_ntt_form())
-        {
-            throw invalid_argument("plain must be in NTT form");
-        }
-
-        auto context_data_ptr = context_->context_data(plain.parms_id());
+        auto context_data_ptr = context_->get_context_data(parms_id);
         if (!context_data_ptr)
         {
+            throw invalid_argument("parms_id is not valid for encryption parameters");
+        }
+
+        auto &context_data = *context_->get_context_data(parms_id);
+        auto &parms = context_data.parms();
+        size_t coeff_mod_count = parms.coeff_modulus().size();
+        size_t coeff_count = parms.poly_modulus_degree();
+        bool is_ntt_form = false;
+
+        if (parms.scheme() == scheme_type::CKKS)
+        {
+            is_ntt_form = true;
+        }
+        else if (parms.scheme() != scheme_type::BFV)
+        {
+            throw invalid_argument("unsupported scheme");
+        }
+
+        // Resize destination and save results
+        destination.resize(context_, parms_id, 2);
+
+        // If asymmetric key encryption
+        if (is_asymmetric)
+        {
+            auto prev_context_data_ptr = context_data.prev_context_data();
+            if (prev_context_data_ptr)
+            {
+                // Requires modulus switching
+                auto &prev_context_data = *prev_context_data_ptr;
+                auto &prev_parms_id = prev_context_data.parms_id();
+                auto &base_converter = prev_context_data.base_converter();
+
+                // Zero encryption without modulus switching
+                Ciphertext temp(pool);
+                util::encrypt_zero_asymmetric(public_key_, context_, prev_parms_id,
+                    is_ntt_form, temp);
+
+                // Modulus switching
+                for (size_t j = 0; j < 2; j++)
+                {
+                    if (is_ntt_form)
+                    {
+                        base_converter->round_last_coeff_modulus_ntt_inplace(
+                            temp.data(j),
+                            prev_context_data.small_ntt_tables(),
+                            pool);
+                    }
+                    else
+                    {
+                        base_converter->round_last_coeff_modulus_inplace(
+                            temp.data(j),
+                            pool);
+                    }
+                    util::set_poly_poly(
+                        temp.data(j),
+                        coeff_count,
+                        coeff_mod_count,
+                        destination.data(j));
+                }
+                destination.is_ntt_form() = is_ntt_form;
+                destination.scale() = temp.scale();
+                destination.parms_id() = parms_id;
+            }
+            else
+            {
+                // Does not require modulus switching
+                util::encrypt_zero_asymmetric(public_key_, context_, parms_id,
+                    is_ntt_form, destination);
+            }
+        }
+        else
+        {
+            util::encrypt_zero_symmetric(secret_key_, context_, parms_id,
+                is_ntt_form, save_seed, destination);
+            // Does not require modulus switching
+        }
+    }
+
+    void Encryptor::encrypt_internal(
+        const Plaintext &plain,
+        bool is_asymmetric, bool save_seed,
+        Ciphertext &destination,
+        MemoryPoolHandle pool) const
+    {
+        // Minimal verification that the keys are set
+        if (is_asymmetric)
+        {
+            if (!is_metadata_valid_for(public_key_, context_))
+            {
+                throw logic_error("public key is not set");
+            }
+        }
+        else
+        {
+            if (!is_metadata_valid_for(secret_key_, context_))
+            {
+                throw logic_error("secret key is not set");
+            }
+        }
+
+        // Verify that plain is valid.
+        if (!is_metadata_valid_for(plain, context_) || !is_buffer_valid(plain))
+        {
             throw invalid_argument("plain is not valid for encryption parameters");
         }
 
-        auto &context_data = *context_data_ptr;
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t first_coeff_mod_count = 
-            context_->context_data()->parms().coeff_modulus().size();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        auto &small_ntt_tables = context_data.small_ntt_tables();
-
-        // Make destination have right size and hash block
-        destination.resize(context_, parms.parms_id(), 2);
-        destination.is_ntt_form() = true;
-        destination.scale() = plain.scale();
-
-        /*
-            Ciphertext (c_0,c_1)
-            c_0 = m + public_key_[0] * u + e_1 where u sampled from R_3 and e_1 sampled from chi.
-            c_1 = public_key_[1] * u + e_2 where e_2 sampled from chi.
-        */
-
-        // Generate u 
-        auto u(allocate_poly(coeff_count, coeff_mod_count, pool));
-        shared_ptr<UniformRandomGenerator> random(parms.random_generator()->create());
-
-        set_poly_coeffs_zero_one_negone(u.get(), random, context_data);
-        
-        // Multiply both u * public_key_[0] and u * public_key_[1] using the same FFT
-        for (size_t i = 0; i < coeff_mod_count; i++)
+        auto scheme = context_->key_context_data()->parms().scheme();
+        if (scheme == scheme_type::BFV)
         {
-            ntt_negacyclic_harvey(u.get() + (i * coeff_count), small_ntt_tables[i]);
-            dyadic_product_coeffmod(
-                u.get() + (i * coeff_count), 
-                public_key_.get() + (i * coeff_count), 
-                coeff_count,
-                coeff_modulus[i], 
-                destination.data() + (i * coeff_count));
-            dyadic_product_coeffmod(
-                u.get() + (i * coeff_count), 
-                public_key_.get() + (coeff_count * first_coeff_mod_count) + (i * coeff_count),
-                coeff_count,
-                coeff_modulus[i], 
-                destination.data(1) + (i * coeff_count));
+            if (plain.is_ntt_form())
+            {
+                throw invalid_argument("plain cannot be in NTT form");
+            }
+
+            encrypt_zero_internal(context_->first_parms_id(),
+                is_asymmetric, save_seed, destination, pool);
+
+            // Multiply plain by scalar coeff_div_plaintext and reposition if in upper-half.
+            // Result gets added into the c_0 term of ciphertext (c_0,c_1).
+            util::multiply_add_plain_with_scaling_variant(
+                plain, *context_->first_context_data(), destination.data());
         }
-
-        auto tmp(allocate_uint(coeff_count, pool));
-        // The plaintext gets added into the c_0 term of ciphertext (c_0,c_1).
-        for (size_t i = 0; i < coeff_mod_count; i++)
+        else if (scheme == scheme_type::CKKS)
         {
-            add_poly_poly_coeffmod(destination.data() + (i * coeff_count),
-                plain.data() + (i * coeff_count), coeff_count,
-                coeff_modulus[i], destination.data() + (i * coeff_count));
+            if (!plain.is_ntt_form())
+            {
+                throw invalid_argument("plain must be in NTT form");
+            }
+
+            auto context_data_ptr = context_->get_context_data(plain.parms_id());
+            if (!context_data_ptr)
+            {
+                throw invalid_argument("plain is not valid for encryption parameters");
+            }
+            encrypt_zero_internal(plain.parms_id(),
+                is_asymmetric, save_seed, destination, pool);
+
+            auto &parms = context_->get_context_data(plain.parms_id())->parms();
+            auto &coeff_modulus = parms.coeff_modulus();
+            size_t coeff_mod_count = coeff_modulus.size();
+            size_t coeff_count = parms.poly_modulus_degree();
+
+            // The plaintext gets added into the c_0 term of ciphertext (c_0,c_1).
+            for (size_t i = 0; i < coeff_mod_count; i++)
+            {
+                util::add_poly_poly_coeffmod(
+                    destination.data() + (i * coeff_count),
+                    plain.data() + (i * coeff_count),
+                    coeff_count,
+                    coeff_modulus[i],
+                    destination.data() + (i * coeff_count));
+            }
+
+            destination.scale() = plain.scale();
         }
-        
-        // Generate e_0, add this value into destination[0].
-        set_poly_coeffs_normal(u.get(), random, context_data);
-
-        for (size_t i = 0; i < coeff_mod_count; i++)
+        else
         {
-            ntt_negacyclic_harvey(u.get() + (i * coeff_count), small_ntt_tables[i]);
-            add_poly_poly_coeffmod(u.get() + (i * coeff_count),
-                destination.data() + (i * coeff_count), coeff_count,
-                coeff_modulus[i], destination.data() + (i * coeff_count));
-        }
-        // Generate e_1, add this value into destination[1].
-        set_poly_coeffs_normal(u.get(), random, context_data);
-
-        for (size_t i = 0; i < coeff_mod_count; i++)
-        {
-            ntt_negacyclic_harvey(u.get() + (i * coeff_count), small_ntt_tables[i]);
-            add_poly_poly_coeffmod(u.get() + (i * coeff_count),
-                destination.data(1) + (i * coeff_count), coeff_count,
-                coeff_modulus[i], destination.data(1) + (i * coeff_count));
-        }
-    }
-
-    void Encryptor::preencrypt(const uint64_t *plain, size_t plain_coeff_count, 
-        const SEALContext::ContextData &context_data, uint64_t *destination)
-    {
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        auto coeff_div_plain_modulus = context_data.coeff_div_plain_modulus();
-        auto plain_upper_half_threshold = context_data.plain_upper_half_threshold();
-        auto upper_half_increment = context_data.upper_half_increment();
-
-        // Multiply plain by scalar coeff_div_plain_modulus_ and reposition if in upper-half.
-        for (size_t i = 0; i < plain_coeff_count; i++, destination++)
-        {
-            if (plain[i] >= plain_upper_half_threshold)
-            {
-                // Loop over primes
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    unsigned long long temp[2]{ 0, 0 };
-                    multiply_uint64(coeff_div_plain_modulus[j], plain[i], temp);
-                    temp[1] += add_uint64(temp[0], upper_half_increment[j], 0, temp);
-                    uint64_t scaled_plain_coeff = barrett_reduce_128(temp, coeff_modulus[j]);
-                    destination[j * coeff_count] = add_uint_uint_mod(
-                        destination[j * coeff_count], scaled_plain_coeff, coeff_modulus[j]);
-                }
-            }
-            else
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    uint64_t scaled_plain_coeff = multiply_uint_uint_mod(
-                        coeff_div_plain_modulus[j], plain[i], coeff_modulus[j]);
-                    destination[j * coeff_count] = add_uint_uint_mod(
-                        destination[j * coeff_count], scaled_plain_coeff, coeff_modulus[j]);
-                }
-            }
-        }
-    }
-
-    void Encryptor::set_poly_coeffs_zero_one_negone(uint64_t *poly, 
-        std::shared_ptr<UniformRandomGenerator> random, 
-        const SEALContext::ContextData &context_data) const
-    {
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        RandomToStandardAdapter engine(random);
-        uniform_int_distribution<int> dist(-1, 1);
-        for (size_t i = 0; i < coeff_count; i++)
-        {
-            int rand_index = dist(engine);
-            if (rand_index == 1)
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = 1;
-                }
-            }
-            else if (rand_index == -1)
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = coeff_modulus[j].value() - 1;
-                }
-            }
-            else
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = 0;
-                }
-            }
-        }
-    }
-
-    void Encryptor::set_poly_coeffs_zero_one(uint64_t *poly,
-        std::shared_ptr<UniformRandomGenerator> random, 
-        const SEALContext::ContextData &context_data) const
-    {
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        RandomToStandardAdapter engine(random);
-        uniform_int_distribution<int> dist(0, 1);
-
-        set_zero_poly(coeff_count, coeff_mod_count, poly);
-        for (size_t i = 0; i < coeff_count; i++)
-        {
-            int rand_index = dist(engine);
-            for (size_t j = 0; j < coeff_mod_count; j++)
-            {
-                poly[i + (j * coeff_count)] = static_cast<uint64_t>(rand_index);
-            }
-        }
-    }
-
-    void Encryptor::set_poly_coeffs_normal(uint64_t *poly, 
-        std::shared_ptr<UniformRandomGenerator> random,
-        const SEALContext::ContextData &context_data) const
-    {
-        auto &parms = context_data.parms();
-        auto &coeff_modulus = parms.coeff_modulus();
-        size_t coeff_count = parms.poly_modulus_degree();
-        size_t coeff_mod_count = coeff_modulus.size();
-
-        if ((parms.noise_standard_deviation() == 0.0) || 
-            (parms.noise_max_deviation() == 0.0))
-        {
-            set_zero_poly(coeff_count, coeff_mod_count, poly);
-            return;
-        }
-
-        RandomToStandardAdapter engine(random);
-        ClippedNormalDistribution dist(0, parms.noise_standard_deviation(), 
-            parms.noise_max_deviation());
-        for (size_t i = 0; i < coeff_count; i++)
-        {
-            int64_t noise = static_cast<int64_t>(dist(engine));
-            if (noise > 0)
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = static_cast<uint64_t>(noise);
-                }
-            }
-            else if (noise < 0)
-            {
-                noise = -noise;
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = 
-                        coeff_modulus[j].value() - static_cast<uint64_t>(noise);
-                }
-            }
-            else
-            {
-                for (size_t j = 0; j < coeff_mod_count; j++)
-                {
-                    poly[i + (j * coeff_count)] = 0;
-                }
-            }
+            throw invalid_argument("unsupported scheme");
         }
     }
 }

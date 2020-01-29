@@ -15,17 +15,15 @@ namespace SEALNetTest
         [TestMethod]
         public void CreateTest()
         {
-            List<SmallModulus> coeffModulus = new List<SmallModulus>
-            {
-                DefaultParams.SmallMods40Bit(0)
-            };
             EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV)
             {
                 PolyModulusDegree = 64,
                 PlainModulus = new SmallModulus(1 << 6),
-                CoeffModulus = coeffModulus
+                CoeffModulus = CoeffModulus.Create(64, new int[] { 40 })
             };
-            SEALContext context = SEALContext.Create(parms);
+            SEALContext context = new SEALContext(parms,
+                expandModChain: false,
+                secLevel: SecLevelType.None);
             KeyGenerator keygen = new KeyGenerator(context);
 
             SecretKey secret = keygen.SecretKey;
@@ -44,17 +42,15 @@ namespace SEALNetTest
         [TestMethod]
         public void SaveLoadTest()
         {
-            List<SmallModulus> coeffModulus = new List<SmallModulus>
-            {
-                DefaultParams.SmallMods40Bit(0)
-            };
             EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV)
             {
                 PolyModulusDegree = 64,
                 PlainModulus = new SmallModulus(1 << 6),
-                CoeffModulus = coeffModulus
+                CoeffModulus = CoeffModulus.Create(64, new int[] { 40 })
             };
-            SEALContext context = SEALContext.Create(parms);
+            SEALContext context = new SEALContext(parms,
+                expandModChain: false,
+                secLevel: SecLevelType.None);
             KeyGenerator keygen = new KeyGenerator(context);
 
             SecretKey secret = keygen.SecretKey;
@@ -64,19 +60,14 @@ namespace SEALNetTest
             Assert.AreNotEqual(ParmsId.Zero, secret.ParmsId);
 
             SecretKey secret2 = new SecretKey();
-            MemoryPoolHandle handle = secret2.Pool;
-
             Assert.IsNotNull(secret2);
             Assert.AreEqual(0ul, secret2.Data.CoeffCount);
             Assert.IsFalse(secret2.Data.IsNTTForm);
-            ulong alloced = handle.AllocByteCount;
 
             using (MemoryStream stream = new MemoryStream())
             {
                 secret.Save(stream);
-
                 stream.Seek(offset: 0, loc: SeekOrigin.Begin);
-
                 secret2.Load(context, stream);
             }
 
@@ -85,28 +76,27 @@ namespace SEALNetTest
             Assert.IsTrue(secret2.Data.IsNTTForm);
             Assert.AreNotEqual(ParmsId.Zero, secret2.ParmsId);
             Assert.AreEqual(secret.ParmsId, secret2.ParmsId);
-            Assert.IsTrue(handle.AllocByteCount != alloced);
         }
 
         [TestMethod]
         public void ExceptionsTest()
         {
-            SEALContext context = GlobalContext.Context;
+            SEALContext context = GlobalContext.BFVContext;
             SecretKey key = new SecretKey();
 
-            Assert.ThrowsException<ArgumentNullException>(() => key = new SecretKey(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => key = new SecretKey(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => key.Set(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.Set(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => key.IsValidFor(null));
-            Assert.ThrowsException<ArgumentNullException>(() => key.IsMetadataValidFor(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => ValCheck.IsValidFor(key, null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => key.Save(null));
-            Assert.ThrowsException<ArgumentNullException>(() => key.UnsafeLoad(null));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.Save(null));
 
-            Assert.ThrowsException<ArgumentNullException>(() => key.Load(context, null));
-            Assert.ThrowsException<ArgumentNullException>(() => key.Load(null, new MemoryStream()));
-            Assert.ThrowsException<ArgumentException>(() => key.Load(context, new MemoryStream()));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.UnsafeLoad(null, new MemoryStream()));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.UnsafeLoad(context, null));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.Load(context, null));
+            Utilities.AssertThrows<ArgumentNullException>(() => key.Load(null, new MemoryStream()));
+            Utilities.AssertThrows<EndOfStreamException>(() => key.Load(context, new MemoryStream()));
         }
     }
 }

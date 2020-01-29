@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#pragma once 
+#pragma once
 
 #include "seal/util/defines.h"
 #include "seal/util/common.h"
@@ -16,7 +16,7 @@ namespace seal
     {
         // Specialization for SEAL_BYTE
         template<>
-        class Pointer<SEAL_BYTE>
+        class SEAL_NODISCARD Pointer<SEAL_BYTE>
         {
             friend class MemoryPoolST;
             friend class MemoryPoolMT;
@@ -26,10 +26,10 @@ namespace seal
             template<typename, typename> friend class ConstPointer;
 
             Pointer() = default;
-            
+
             // Move of the same type
-            Pointer(Pointer<SEAL_BYTE> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            Pointer(Pointer<SEAL_BYTE> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -45,12 +45,13 @@ namespace seal
                 std::fill_n(data_, head_->item_byte_count(), value);
             }
 
-            inline SEAL_BYTE &operator [](std::size_t index)
+            SEAL_NODISCARD inline SEAL_BYTE &operator [](std::size_t index)
             {
                 return data_[index];
             }
 
-            inline const SEAL_BYTE &operator [](std::size_t index) const
+            SEAL_NODISCARD inline const SEAL_BYTE &operator [](
+                std::size_t index) const
             {
                 return data_[index];
             }
@@ -61,42 +62,42 @@ namespace seal
                 return *this;
             }
 
-            inline bool is_set() const noexcept
+            SEAL_NODISCARD inline bool is_set() const noexcept
             {
                 return data_ != nullptr;
             }
 
-            inline SEAL_BYTE *get() noexcept
+            SEAL_NODISCARD inline SEAL_BYTE *get() noexcept
             {
                 return data_;
             }
 
-            inline const SEAL_BYTE *get() const noexcept
+            SEAL_NODISCARD inline const SEAL_BYTE *get() const noexcept
             {
                 return data_;
             }
 
-            inline SEAL_BYTE *operator ->() noexcept
+            SEAL_NODISCARD inline SEAL_BYTE *operator ->() noexcept
             {
                 return data_;
             }
 
-            inline const SEAL_BYTE *operator ->() const noexcept
+            SEAL_NODISCARD inline const SEAL_BYTE *operator ->() const noexcept
             {
                 return data_;
             }
 
-            inline SEAL_BYTE &operator *()
+            SEAL_NODISCARD inline SEAL_BYTE &operator *()
             {
                 return *data_;
             }
 
-            inline const SEAL_BYTE &operator *() const
+            SEAL_NODISCARD inline const SEAL_BYTE &operator *() const
             {
                 return *data_;
             }
 
-            inline bool is_alias() const noexcept
+            SEAL_NODISCARD inline bool is_alias() const noexcept
             {
                 return alias_;
             }
@@ -144,35 +145,24 @@ namespace seal
                 acquire(other);
             }
 
-            inline void swap_with(Pointer<SEAL_BYTE> &other) noexcept 
-            {
-                std::swap(data_, other.data_);
-                std::swap(head_, other.head_);
-                std::swap(item_, other.item_);
-                std::swap(alias_, other.alias_);
-            }
-
-            inline void swap_with(Pointer<SEAL_BYTE> &&other) noexcept
-            {
-                swap_with(other);
-            }
-            
             ~Pointer() noexcept
             {
                 release();
             }
 
-            operator bool() const noexcept
+            SEAL_NODISCARD operator bool() const noexcept
             {
                 return (data_ != nullptr);
             }
 
-            inline static Pointer<SEAL_BYTE> Owning(SEAL_BYTE *pointer) noexcept
+            SEAL_NODISCARD inline static Pointer<SEAL_BYTE> Owning(
+                SEAL_BYTE *pointer) noexcept
             {
                 return {pointer, false};
             }
 
-            inline static Pointer<SEAL_BYTE> Aliasing(SEAL_BYTE *pointer) noexcept
+            SEAL_NODISCARD inline static auto Aliasing(
+                SEAL_BYTE *pointer) noexcept -> Pointer<SEAL_BYTE>
             {
                 return {pointer, true};
             }
@@ -182,7 +172,7 @@ namespace seal
 
             Pointer<SEAL_BYTE> &operator =(const Pointer<SEAL_BYTE> &assign) = delete;
 
-            Pointer(SEAL_BYTE *pointer, bool alias) noexcept : 
+            Pointer(SEAL_BYTE *pointer, bool alias) noexcept :
                 data_(pointer), alias_(alias)
             {
             }
@@ -192,7 +182,7 @@ namespace seal
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -210,7 +200,7 @@ namespace seal
         };
 
         template<typename T, typename>
-        class Pointer
+        class SEAL_NODISCARD Pointer
         {
             friend class MemoryPoolST;
             friend class MemoryPoolMT;
@@ -221,10 +211,10 @@ namespace seal
             friend class ConstPointer<T>;
 
             Pointer() = default;
-            
+
             // Move of the same type
-            Pointer(Pointer<T> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            Pointer(Pointer<T> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -293,12 +283,12 @@ namespace seal
                 source.alias_ = false;
             }
 
-            inline T &operator [](std::size_t index)
+            SEAL_NODISCARD inline T &operator [](std::size_t index)
             {
                 return data_[index];
             }
 
-            inline const T &operator [](std::size_t index) const
+            SEAL_NODISCARD inline const T &operator [](std::size_t index) const
             {
                 return data_[index];
             }
@@ -315,42 +305,42 @@ namespace seal
                 return *this;
             }
 
-            inline bool is_set() const noexcept
+            SEAL_NODISCARD inline bool is_set() const noexcept
             {
                 return data_ != nullptr;
             }
 
-            inline T *get() noexcept
+            SEAL_NODISCARD inline T *get() noexcept
             {
                 return data_;
             }
 
-            inline const T *get() const noexcept
+            SEAL_NODISCARD inline const T *get() const noexcept
             {
                 return data_;
             }
 
-            inline T *operator ->() noexcept
+            SEAL_NODISCARD inline T *operator ->() noexcept
             {
                 return data_;
             }
 
-            inline const T *operator ->() const noexcept
+            SEAL_NODISCARD inline const T *operator ->() const noexcept
             {
                 return data_;
             }
 
-            inline T &operator *()
+            SEAL_NODISCARD inline T &operator *()
             {
                 return *data_;
             }
 
-            inline const T &operator *() const
+            SEAL_NODISCARD inline const T &operator *() const
             {
                 return *data_;
             }
 
-            inline bool is_alias() const noexcept
+            SEAL_NODISCARD inline bool is_alias() const noexcept
             {
                 return alias_;
             }
@@ -444,35 +434,23 @@ namespace seal
                 acquire(other);
             }
 
-            inline void swap_with(Pointer<T> &other) noexcept 
-            {
-                std::swap(data_, other.data_);
-                std::swap(head_, other.head_);
-                std::swap(item_, other.item_);
-                std::swap(alias_, other.alias_);
-            }
-
-            inline void swap_with(Pointer<T> &&other) noexcept
-            {
-                swap_with(other);
-            }
-            
             ~Pointer() noexcept
             {
                 release();
             }
 
-            operator bool() const noexcept
+            SEAL_NODISCARD operator bool() const noexcept
             {
                 return (data_ != nullptr);
             }
 
-            inline static Pointer<T> Owning(T *pointer) noexcept
+            SEAL_NODISCARD inline static Pointer<T> Owning(T *pointer) noexcept
             {
                 return {pointer, false};
             }
 
-            inline static Pointer<T> Aliasing(T *pointer) noexcept
+            SEAL_NODISCARD inline static auto Aliasing(
+                T *pointer) noexcept -> Pointer<T>
             {
                 return {pointer, true};
             }
@@ -482,7 +460,7 @@ namespace seal
 
             Pointer<T> &operator =(const Pointer<T> &assign) = delete;
 
-            Pointer(T *pointer, bool alias) noexcept : 
+            Pointer(T *pointer, bool alias) noexcept :
                 data_(pointer), alias_(alias)
             {
             }
@@ -492,7 +470,7 @@ namespace seal
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -514,7 +492,7 @@ namespace seal
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -538,7 +516,7 @@ namespace seal
 
         // Specialization for SEAL_BYTE
         template<>
-        class ConstPointer<SEAL_BYTE>
+        class SEAL_NODISCARD ConstPointer<SEAL_BYTE>
         {
             friend class MemoryPoolST;
             friend class MemoryPoolMT;
@@ -549,8 +527,8 @@ namespace seal
             ConstPointer() = default;
 
             // Move of the same type
-            ConstPointer(Pointer<SEAL_BYTE> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            ConstPointer(Pointer<SEAL_BYTE> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -567,8 +545,8 @@ namespace seal
             }
 
             // Move of the same type
-            ConstPointer(ConstPointer<SEAL_BYTE> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            ConstPointer(ConstPointer<SEAL_BYTE> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -596,27 +574,28 @@ namespace seal
                 return *this;
             }
 
-            inline const SEAL_BYTE &operator [](std::size_t index) const
+            SEAL_NODISCARD inline const SEAL_BYTE &operator [](
+                std::size_t index) const
             {
                 return data_[index];
             }
 
-            inline bool is_set() const noexcept
+            SEAL_NODISCARD inline bool is_set() const noexcept
             {
                 return data_ != nullptr;
             }
 
-            inline const SEAL_BYTE *get() const noexcept
+            SEAL_NODISCARD inline const SEAL_BYTE *get() const noexcept
             {
                 return data_;
             }
 
-            inline const SEAL_BYTE *operator ->() const noexcept
+            SEAL_NODISCARD inline const SEAL_BYTE *operator ->() const noexcept
             {
                 return data_;
             }
 
-            inline const SEAL_BYTE &operator *() const
+            SEAL_NODISCARD inline const SEAL_BYTE &operator *() const
             {
                 return *data_;
             }
@@ -678,23 +657,9 @@ namespace seal
                 other.alias_ = false;
             }
 
-            void acquire(ConstPointer<SEAL_BYTE> &&other) noexcept
+            inline void acquire(ConstPointer<SEAL_BYTE> &&other) noexcept
             {
                 acquire(other);
-            }
-
-            inline void swap_with(ConstPointer<SEAL_BYTE> &other) noexcept
-            {
-                std::swap(data_, other.data_);
-                std::swap(head_, other.head_);
-                std::swap(item_, other.item_);
-                std::swap(alias_, other.alias_);
-            }
-
-
-            inline void swap_with(ConstPointer<SEAL_BYTE> &&other) noexcept
-            {
-                swap_with(other);
             }
 
             ~ConstPointer() noexcept
@@ -702,19 +667,19 @@ namespace seal
                 release();
             }
 
-            operator bool() const
+            SEAL_NODISCARD operator bool() const
             {
                 return (data_ != nullptr);
             }
 
-            inline static auto Owning(SEAL_BYTE *pointer) noexcept
+            SEAL_NODISCARD inline static auto Owning(SEAL_BYTE *pointer) noexcept
                 -> ConstPointer<SEAL_BYTE>
             {
                 return {pointer, false};
             }
 
-            inline static auto Aliasing(const SEAL_BYTE *pointer) noexcept
-                -> ConstPointer<SEAL_BYTE>
+            SEAL_NODISCARD inline static auto Aliasing(
+                const SEAL_BYTE *pointer) noexcept -> ConstPointer<SEAL_BYTE>
             {
                 return {const_cast<SEAL_BYTE*>(pointer), true};
             }
@@ -724,17 +689,17 @@ namespace seal
 
             ConstPointer &operator =(const ConstPointer<SEAL_BYTE> &assign) = delete;
 
-            ConstPointer(SEAL_BYTE *pointer, bool alias) noexcept : 
+            ConstPointer(SEAL_BYTE *pointer, bool alias) noexcept :
                 data_(pointer), alias_(alias)
             {
             }
 
-            ConstPointer(class MemoryPoolHead *head)            
+            ConstPointer(class MemoryPoolHead *head)
             {
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -751,8 +716,8 @@ namespace seal
             bool alias_ = false;
         };
 
-        template<typename T, typename> 
-        class ConstPointer
+        template<typename T, typename>
+        class SEAL_NODISCARD ConstPointer
         {
             friend class MemoryPoolST;
             friend class MemoryPoolMT;
@@ -761,8 +726,8 @@ namespace seal
             ConstPointer() = default;
 
             // Move of the same type
-            ConstPointer(Pointer<T> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            ConstPointer(Pointer<T> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -832,8 +797,8 @@ namespace seal
             }
 
             // Move of the same type
-            ConstPointer(ConstPointer<T> &&source) noexcept : 
-                data_(source.data_), head_(source.head_), 
+            ConstPointer(ConstPointer<T> &&source) noexcept :
+                data_(source.data_), head_(source.head_),
                 item_(source.item_), alias_(source.alias_)
             {
                 source.data_ = nullptr;
@@ -901,7 +866,7 @@ namespace seal
                 source.item_ = nullptr;
                 source.alias_ = false;
             }
-        
+
             inline auto &operator =(ConstPointer<T> &&assign) noexcept
             {
                 acquire(std::move(assign));
@@ -926,27 +891,27 @@ namespace seal
                 return *this;
             }
 
-            inline const T &operator [](std::size_t index) const
+            SEAL_NODISCARD inline const T &operator [](std::size_t index) const
             {
                 return data_[index];
             }
 
-            inline bool is_set() const noexcept
+            SEAL_NODISCARD inline bool is_set() const noexcept
             {
                 return data_ != nullptr;
             }
 
-            inline const T *get() const noexcept
+            SEAL_NODISCARD inline const T *get() const noexcept
             {
                 return data_;
             }
 
-            inline const T *operator ->() const noexcept
+            SEAL_NODISCARD inline const T *operator ->() const noexcept
             {
                 return data_;
             }
 
-            inline const T &operator *() const
+            SEAL_NODISCARD inline const T &operator *() const
             {
                 return *data_;
             }
@@ -1095,35 +1060,23 @@ namespace seal
                 acquire(other);
             }
 
-            inline void swap_with(ConstPointer<T> &other) noexcept
-            {
-                std::swap(data_, other.data_);
-                std::swap(head_, other.head_);
-                std::swap(item_, other.item_);
-                std::swap(alias_, other.alias_);
-            }
-
-            inline void swap_with(ConstPointer<T> &&other) noexcept
-            {
-                swap_with(other);
-            }
-
             ~ConstPointer() noexcept
             {
                 release();
             }
 
-            operator bool() const noexcept
+            SEAL_NODISCARD operator bool() const noexcept
             {
                 return (data_ != nullptr);
             }
 
-            inline static ConstPointer<T> Owning(T *pointer) noexcept
+            SEAL_NODISCARD inline static ConstPointer<T> Owning(T *pointer) noexcept
             {
                 return {pointer, false};
             }
 
-            inline static ConstPointer<T> Aliasing(const T *pointer) noexcept
+            SEAL_NODISCARD inline static auto Aliasing(
+                const T *pointer) noexcept -> ConstPointer<T>
             {
                 return {const_cast<T*>(pointer), true};
             }
@@ -1142,7 +1095,7 @@ namespace seal
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -1164,7 +1117,7 @@ namespace seal
 #ifdef SEAL_DEBUG
                 if (!head)
                 {
-                    throw std::invalid_argument("head cannot be nullptr");
+                    throw std::invalid_argument("head cannot be null");
                 }
 #endif
                 head_ = head;
@@ -1189,27 +1142,29 @@ namespace seal
         // Allocate single element
         template<typename T_, typename... Args,
             typename = std::enable_if<std::is_standard_layout<T_>::value>>
-        inline auto allocate(MemoryPool &pool, Args &&...args)
+        SEAL_NODISCARD inline auto allocate(
+            MemoryPool &pool, Args &&...args)
         {
             using T = typename std::remove_cv<typename std::remove_reference<T_>::type>::type;
-            return Pointer<T>(pool.get_for_byte_count(sizeof(T)), 
+            return Pointer<T>(pool.get_for_byte_count(sizeof(T)),
                 std::forward<Args>(args)...);
         }
 
         // Allocate array of elements
         template<typename T_, typename... Args,
             typename = std::enable_if<std::is_standard_layout<T_>::value>>
-        inline auto allocate(std::size_t count, MemoryPool &pool, Args &&...args)
+        SEAL_NODISCARD inline auto allocate(
+            std::size_t count, MemoryPool &pool, Args &&...args)
         {
             using T = typename std::remove_cv<typename std::remove_reference<T_>::type>::type;
-            return Pointer<T>(pool.get_for_byte_count(util::mul_safe(count, sizeof(T))), 
+            return Pointer<T>(pool.get_for_byte_count(util::mul_safe(count, sizeof(T))),
                 std::forward<Args>(args)...);
         }
 
-        template<typename T_, 
+        template<typename T_,
             typename = std::enable_if<std::is_standard_layout<T_>::value>>
-        inline auto duplicate_if_needed(T_ *original, std::size_t count, 
-            bool condition, MemoryPool &pool)
+        SEAL_NODISCARD inline auto duplicate_if_needed(
+            T_ *original, std::size_t count, bool condition, MemoryPool &pool)
         {
             using T = typename std::remove_cv<typename std::remove_reference<T_>::type>::type;
 #ifdef SEAL_DEBUG
@@ -1227,10 +1182,10 @@ namespace seal
             return allocation;
         }
 
-        template<typename T_, 
-            typename = std::enable_if<std::is_standard_layout<T_>::value>> 
-        inline auto duplicate_if_needed(const T_ *original, 
-            std::size_t count, bool condition, MemoryPool &pool)
+        template<typename T_,
+            typename = std::enable_if<std::is_standard_layout<T_>::value>>
+        SEAL_NODISCARD inline auto duplicate_if_needed(
+            const T_ *original, std::size_t count, bool condition, MemoryPool &pool)
         {
             using T = typename std::remove_cv<typename std::remove_reference<T_>::type>::type;
 #ifdef SEAL_DEBUG

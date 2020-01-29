@@ -4,6 +4,7 @@
 using Microsoft.Research.SEAL.Tools;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Research.SEAL
 {
@@ -14,14 +15,10 @@ namespace Microsoft.Research.SEAL
     /// <para>
     /// Thread Safety
     /// In general, reading from PublicKey is thread-safe as long as no other thread
-    /// is concurrently mutating it. This is due to the underlying data structure 
+    /// is concurrently mutating it. This is due to the underlying data structure
     /// storing the public key not being thread-safe.
     /// </para>
     /// </remarks>
-    /// <see cref="KeyGenerator">see KeyGenerator for the class that generates the public key.</see>
-    /// <see cref="SecretKey">see SecretKey for the class that stores the secret key.</see>
-    /// <see cref="RelinKeys">see RelinKeys for the class that stores the relinearization keys.</see>
-    /// <see cref="GaloisKeys">see GaloisKeys for the class that stores the Galois keys.</see>
     public class PublicKey : NativeObject
     {
         /// <summary>
@@ -71,8 +68,12 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Returns a copy of the underlying Ciphertext
+        /// Returns the underlying Ciphertext.
         /// </summary>
+        /// <remarks>
+        /// Returns the underlying Ciphertext. The returned Ciphertext is valid
+        /// only as long as the PublicKey is valid and not changed.
+        /// </remarks>
         public Ciphertext Data
         {
             get
@@ -84,104 +85,115 @@ namespace Microsoft.Research.SEAL
         }
 
         /// <summary>
-        /// Saves the PublicKey to an output stream.
+        /// Returns an upper bound on the size of the PublicKey, as if it was written
+        /// to an output stream.
         /// </summary>
-        /// 
+        /// <param name="comprMode">The compression mode</param>
+        /// <exception cref="ArgumentException">if the compression mode is not
+        /// supported</exception>
+        /// <exception cref="InvalidOperationException">if the size does not fit in
+        /// the return type</exception>
+        public long SaveSize(ComprModeType comprMode)
+        {
+            NativeMethods.PublicKey_SaveSize(
+                NativePtr, (byte)comprMode, out long outBytes);
+            return outBytes;
+        }
+
+        /// <summary>Saves the PublicKey to an output stream.</summary>
         /// <remarks>
-        /// Saves the PublicKey to an output stream. The output is in binary format and 
-        /// not human-readable. The output stream must have the "binary" flag set.
+        /// Saves the PublicKey to an output stream. The output is in binary format
+        /// and not human-readable.
         /// </remarks>
         /// <param name="stream">The stream to save the PublicKey to</param>
+        /// <param name="comprMode">The desired compression mode</param>
         /// <exception cref="ArgumentNullException">if stream is null</exception>
-        public void Save(Stream stream)
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support writing</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the data to be saved
+        /// is invalid, if compression mode is not supported, or if compression
+        /// failed</exception>
+        public long Save(Stream stream, ComprModeType? comprMode = null)
         {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
+            comprMode = comprMode ?? Serialization.ComprModeDefault;
+            if (!Serialization.IsSupportedComprMode(comprMode.Value))
+                throw new InvalidOperationException("Unsupported compression mode");
 
-            Data.Save(stream);
+            ComprModeType comprModeValue = comprMode.Value;
+            return Serialization.Save(
+                (byte[] outptr, ulong size, byte cm, out long outBytes) =>
+                    NativeMethods.PublicKey_Save(NativePtr, outptr, size,
+                    cm, out outBytes),
+                SaveSize(comprModeValue), comprModeValue, stream);
         }
 
-        /// <summary>
+        /// <summary>Loads a PublicKey from an input stream overwriting the current
+        /// PublicKey.</summary>
+        /// <remarks>
         /// Loads a PublicKey from an input stream overwriting the current PublicKey.
         /// No checking of the validity of the PublicKey data against encryption
-        /// parameters is performed. This function should not be used unless the 
+        /// parameters is performed. This function should not be used unless the
         /// PublicKey comes from a fully trusted source.
-        /// </summary>
-        /// <param name="stream">The stream to load the PublicKey from</param>
-        /// <exception cref="ArgumentNullException">if stream is null</exception>
-        /// <exception cref="ArgumentException">if a valid PublicKey could not be read from stream</exception>
-        public void UnsafeLoad(Stream stream)
-        {
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
-
-            Data.UnsafeLoad(stream);
-        }
-
-
-        /// <summary>
-        /// Loads a PublicKey from an input stream overwriting the current 
-        /// PublicKey.
-        /// </summary>
+        /// </remarks>
         /// <param name="context">The SEALContext</param>
         /// <param name="stream">The stream to load the PublicKey from</param>
-        /// <exception cref="ArgumentNullException">if either context or stream are null</exception>
-        /// <exception cref="ArgumentException">if the context is not set or encryption
+        /// <exception cref="ArgumentNullException">if context or stream is
+        /// null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support reading</exception>
+        /// <exception cref="ArgumentException">if context is not set or encryption
         /// parameters are not valid</exception>
-        /// <exception cref="ArgumentException">if the loaded PublicKey is invalid for the
-        /// context</exception>
-        public void Load(SEALContext context, Stream stream)
+        /// <exception cref="EndOfStreamException">if the stream ended
+        /// unexpectedly</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the loaded data is invalid
+        /// or if the loaded compression mode is not supported</exception>
+        public long UnsafeLoad(SEALContext context, Stream stream)
         {
             if (null == context)
                 throw new ArgumentNullException(nameof(context));
-            if (null == stream)
-                throw new ArgumentNullException(nameof(stream));
 
-            UnsafeLoad(stream);
-
-            if (!IsValidFor(context))
-            {
-                throw new ArgumentException("PublicKey data is invalid for the context");
-            }
+            return Serialization.Load(
+                (byte[] outptr, ulong size, out long outBytes) =>
+                    NativeMethods.PublicKey_UnsafeLoad(NativePtr, context.NativePtr,
+                    outptr, size, out outBytes),
+                stream);
         }
 
-        /// <summary>
-        /// Check whether the current PublicKey is valid for a given SEALContext. If 
-        /// the given SEALContext is not set, the encryption parameters are invalid, 
-        /// or the PublicKey data does not match the SEALContext, this function returns
-        /// false. Otherwise, returns true.
-        /// </summary>
+        /// <summary>Loads a PublicKey from an input stream overwriting the current
+        /// PublicKey.</summary>
+        /// <remarks>
+        /// Loads a PublicKey from an input stream overwriting the current PublicKey.
+        /// The loaded PublicKey is verified to be valid for the given SEALContext.
+        /// </remarks>
         /// <param name="context">The SEALContext</param>
-        /// <exception cref="ArgumentNullException">if context is null</exception>
-        public bool IsValidFor(SEALContext context)
+        /// <param name="stream">The stream to load the PublicKey from</param>
+        /// <exception cref="ArgumentNullException">if context or stream is
+        /// null</exception>
+        /// <exception cref="ArgumentException">if the stream is closed or does not
+        /// support reading</exception>
+        /// <exception cref="ArgumentException">if context is not set or encryption
+        /// parameters are not valid</exception>
+        /// <exception cref="EndOfStreamException">if the stream ended
+        /// unexpectedly</exception>
+        /// <exception cref="IOException">if I/O operations failed</exception>
+        /// <exception cref="InvalidOperationException">if the loaded data is invalid
+        /// or if the loaded compression mode is not supported</exception>
+        public long Load(SEALContext context, Stream stream)
         {
             if (null == context)
                 throw new ArgumentNullException(nameof(context));
 
-            NativeMethods.PublicKey_IsValidFor(NativePtr, context.NativePtr, out bool result);
-            return result;
+            return Serialization.Load(
+                (byte[] outptr, ulong size, out long outBytes) =>
+                    NativeMethods.PublicKey_Load(NativePtr, context.NativePtr,
+                    outptr, size, out outBytes),
+                stream);
         }
 
         /// <summary>
-        /// Check whether the current PublicKey is valid for a given SEALContext. If 
-        /// the given SEALContext is not set, the encryption parameters are invalid, 
-        /// or the PublicKey data does not match the SEALContext, this function returns
-        /// false. Otherwise, returns true. This function only checks the metadata
-        /// and not the public key data itself.
-        /// </summary>
-        /// <param name="context">The SEALContext</param>
-        /// <exception cref="ArgumentNullException">if context is null</exception>
-        public bool IsMetadataValidFor(SEALContext context)
-        {
-            if (null == context)
-                throw new ArgumentNullException(nameof(context));
-
-            NativeMethods.PublicKey_IsMetadataValidFor(NativePtr, context.NativePtr, out bool result);
-            return result;
-        }
-
-        /// <summary>
-        /// Returns a reference to parmsId.
+        /// Returns a copy of ParmsId.
         /// </summary>
         public ParmsId ParmsId
         {

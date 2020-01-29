@@ -12,10 +12,10 @@
 namespace seal
 {
     /**
-    A simple wrapper class to implement C++ UniformRandomBitGenerator type properties 
+    A simple wrapper class to implement C++ UniformRandomBitGenerator type properties
     for a given polymorphic UniformRandomGenerator instance. The resulting object can
-    be used as a randomness source in C++ standard random number distribution classes, 
-    such as std::uniform_int_distribution, std::normal_distribution, or any of the 
+    be used as a randomness source in C++ standard random number distribution classes,
+    such as std::uniform_int_distribution, std::normal_distribution, or any of the
     standard RandomNumberEngine classes.
     */
     class RandomToStandardAdapter
@@ -24,8 +24,8 @@ namespace seal
         using result_type = std::uint32_t;
 
         /**
-        Creates a new RandomToStandardAdapter backed by a given UniformRandomGenerator. 
-        
+        Creates a new RandomToStandardAdapter backed by a given UniformRandomGenerator.
+
         @param[in] generator A backing UniformRandomGenerator instance
         @throws std::invalid_argument if generator is null
         */
@@ -41,7 +41,7 @@ namespace seal
         /**
         Returns a new random number from the backing UniformRandomGenerator.
         */
-        result_type operator()()
+        SEAL_NODISCARD inline result_type operator()()
         {
             return generator_->generate();
         }
@@ -49,7 +49,7 @@ namespace seal
         /**
         Returns the backing UniformRandomGenerator.
         */
-        auto generator() const noexcept
+        SEAL_NODISCARD inline auto generator() const noexcept
         {
             return generator_;
         }
@@ -57,7 +57,7 @@ namespace seal
         /**
         Returns the smallest possible output value.
         */
-        static constexpr result_type min() noexcept
+        SEAL_NODISCARD inline static constexpr result_type min() noexcept
         {
             return std::numeric_limits<result_type>::min();
         }
@@ -65,7 +65,7 @@ namespace seal
         /**
         Returns the largest possible output value.
         */
-        static constexpr result_type max() noexcept
+        SEAL_NODISCARD static constexpr result_type max() noexcept
         {
             return std::numeric_limits<result_type>::max();
         }

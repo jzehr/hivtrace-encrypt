@@ -16,8 +16,8 @@ namespace SEALNetTest
             EncryptionParameters encParams1 = new EncryptionParameters(SchemeType.BFV);
             EncryptionParameters encParams2 = new EncryptionParameters(SchemeType.CKKS);
 
-            SEALContext context1 = SEALContext.Create(encParams1);
-            SEALContext context2 = SEALContext.Create(encParams2);
+            SEALContext context1 = new SEALContext(encParams1);
+            SEALContext context2 = new SEALContext(encParams2);
 
             Assert.IsNotNull(context1);
             Assert.IsNotNull(context2);
@@ -50,26 +50,21 @@ namespace SEALNetTest
         [TestMethod]
         public void SEALContextParamsTest()
         {
-            List<SmallModulus> coeffModulus = new List<SmallModulus>
-            {
-                DefaultParams.SmallMods30Bit(0),
-                DefaultParams.SmallMods30Bit(1),
-                DefaultParams.SmallMods30Bit(2)
-            };
             EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV)
             {
                 PolyModulusDegree = 128,
                 PlainModulus = new SmallModulus(1 << 6),
-                CoeffModulus = coeffModulus
+                CoeffModulus = CoeffModulus.Create(128, new int[] { 30, 30, 30 })
             };
-            SEALContext context = SEALContext.Create(parms);
+            SEALContext context = new SEALContext(parms,
+                expandModChain: true,
+                secLevel: SecLevelType.None);
 
-            SEALContext.ContextData data = context.FirstContextData;
+            SEALContext.ContextData data = context.KeyContextData;
             Assert.IsNotNull(data);
 
             EncryptionParameters parms2 = data.Parms;
             Assert.AreEqual(parms.PolyModulusDegree, parms2.PolyModulusDegree);
-            Assert.AreEqual(parms.NoiseStandardDeviation, parms2.NoiseStandardDeviation);
 
             EncryptionParameterQualifiers qualifiers = data.Qualifiers;
             Assert.IsNotNull(qualifiers);
@@ -79,7 +74,9 @@ namespace SEALNetTest
             Assert.IsTrue(qualifiers.UsingFastPlainLift);
             Assert.IsTrue(qualifiers.UsingFFT);
             Assert.IsTrue(qualifiers.UsingNTT);
-            Assert.IsTrue(qualifiers.UsingHEStdSecurity);
+            Assert.AreEqual(SecLevelType.None, qualifiers.SecLevel);
+            Assert.IsFalse(qualifiers.UsingDescendingModulusChain);
+            Assert.IsTrue(context.UsingKeyswitching);
 
             ulong[] cdpm = data.CoeffDivPlainModulus;
             Assert.AreEqual(3, cdpm.Length);
@@ -92,14 +89,16 @@ namespace SEALNetTest
             Assert.AreEqual(3, data.UpperHalfIncrement.Length);
             Assert.AreEqual(2ul, data.ChainIndex);
 
+            Assert.IsNull(data.PrevContextData);
             SEALContext.ContextData data2 = data.NextContextData;
             Assert.IsNotNull(data2);
             Assert.AreEqual(1ul, data2.ChainIndex);
+            Assert.AreEqual(2ul, data2.PrevContextData.ChainIndex);
 
             SEALContext.ContextData data3 = data2.NextContextData;
             Assert.IsNotNull(data3);
             Assert.AreEqual(0ul, data3.ChainIndex);
-
+            Assert.AreEqual(1ul, data3.PrevContextData.ChainIndex);
             Assert.IsNull(data3.NextContextData);
         }
 
@@ -107,21 +106,16 @@ namespace SEALNetTest
         public void SEALContextCKKSParamsTest()
         {
             int slotSize = 4;
-            List<SmallModulus> coeffModulus = new List<SmallModulus>
-            {
-                DefaultParams.SmallMods40Bit(0),
-                DefaultParams.SmallMods40Bit(1),
-                DefaultParams.SmallMods40Bit(2),
-                DefaultParams.SmallMods40Bit(3)
-            };
             EncryptionParameters parms = new EncryptionParameters(SchemeType.CKKS)
             {
                 PolyModulusDegree = 2 * (ulong)slotSize,
-                CoeffModulus = coeffModulus
+                CoeffModulus = CoeffModulus.Create(2 * (ulong)slotSize, new int[] { 40, 40, 40, 40 })
             };
-            SEALContext context = SEALContext.Create(parms);
+            SEALContext context = new SEALContext(parms,
+                expandModChain: true,
+                secLevel: SecLevelType.None);
 
-            SEALContext.ContextData data = context.FirstContextData;
+            SEALContext.ContextData data = context.KeyContextData;
             Assert.IsNotNull(data);
 
             // This should be available in CKKS
@@ -130,17 +124,21 @@ namespace SEALNetTest
             Assert.IsNull(data.UpperHalfIncrement);
             Assert.AreEqual(3ul, data.ChainIndex);
 
+            Assert.IsNull(data.PrevContextData);
             SEALContext.ContextData data2 = data.NextContextData;
             Assert.IsNotNull(data2);
             Assert.AreEqual(2ul, data2.ChainIndex);
+            Assert.AreEqual(3ul, data2.PrevContextData.ChainIndex);
 
             SEALContext.ContextData data3 = data2.NextContextData;
             Assert.IsNotNull(data3);
             Assert.AreEqual(1ul, data3.ChainIndex);
+            Assert.AreEqual(2ul, data3.PrevContextData.ChainIndex);
 
             SEALContext.ContextData data4 = data3.NextContextData;
             Assert.IsNotNull(data4);
             Assert.AreEqual(0ul, data4.ChainIndex);
+            Assert.AreEqual(1ul, data4.PrevContextData.ChainIndex);
 
             Assert.IsNull(data4.NextContextData);
         }
@@ -151,21 +149,33 @@ namespace SEALNetTest
             EncryptionParameters parms = new EncryptionParameters(SchemeType.BFV)
             {
                 PolyModulusDegree = 4096,
-                CoeffModulus = DefaultParams.CoeffModulus128(polyModulusDegree: 4096),
+                CoeffModulus = CoeffModulus.BFVDefault(polyModulusDegree: 4096),
                 PlainModulus = new SmallModulus(1 << 20)
             };
 
-            SEALContext context1 = SEALContext.Create(parms);
+            SEALContext context1 = new SEALContext(parms,
+                expandModChain: true,
+                secLevel: SecLevelType.None);
 
             // By default there is a chain
-            SEALContext.ContextData contextData = context1.FirstContextData;
+            SEALContext.ContextData contextData = context1.KeyContextData;
             Assert.IsNotNull(contextData);
+            Assert.IsNull(contextData.PrevContextData);
+            Assert.IsNotNull(contextData.NextContextData);
+            contextData = context1.FirstContextData;
+            Assert.IsNotNull(contextData);
+            Assert.IsNotNull(contextData.PrevContextData);
             Assert.IsNotNull(contextData.NextContextData);
 
             // This should not create a chain
-            SEALContext context2 = SEALContext.Create(parms, expandModChain: false);
+            SEALContext context2 = new SEALContext(parms, expandModChain: false);
+            contextData = context2.KeyContextData;
+            Assert.IsNotNull(contextData);
+            Assert.IsNull(contextData.PrevContextData);
+            Assert.IsNotNull(contextData.NextContextData);
             contextData = context2.FirstContextData;
             Assert.IsNotNull(contextData);
+            Assert.IsNotNull(contextData.PrevContextData);
             Assert.IsNull(contextData.NextContextData);
         }
     }
