@@ -142,7 +142,7 @@ int main()
     // Read FASTA file
     ifstream hxb2;
     //hxb2.open("../examples/rsrc/HXB2_prrt_multiple.fa");
-    hxb2.open("../examples/rsrc/Site_1_aligned.fa");
+    hxb2.open("../native/xamples/rsrc/Site_1_aligned.fa");
     
     cout << endl;
     cout << "READING FASTA" << endl;

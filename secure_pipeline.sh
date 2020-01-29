@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cd native/bin/
+#cd native/bin/
+cd bin/
 
 printf "\n~~Encrypting site A~~\n"
 ./site_A
