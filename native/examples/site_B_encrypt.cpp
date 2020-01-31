@@ -73,20 +73,24 @@ int main()
     ifstream infile_parms_A;
     infile_parms_A.open("parms_A.txt");
     EncryptionParameters parms(scheme_type::BFV);
-    parms = EncryptionParameters::Load(infile_parms_A);
+    parms.load(infile_parms_A);
 
     /*
     We create the SEALContext as usual and print the parameters.
     */
-    auto context = SEALContext::Create(parms);
+    //auto context = SEALContext::Create(parms);
+    auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
     /*
     We can verify that batching is indeed enabled by looking at the encryption
     parameter qualifiers created by SEALContext.
-    */
+    
     auto qualifiers = context->context_data()->qualifiers();
     cout << "Batching enabled: " << boolalpha << qualifiers.using_batching
          << endl;
+    */
+    
+    auto qualifiers = context->first_context_data()->qualifiers();
 
     ifstream pk_A;
     pk_A.open("pk_A.txt");

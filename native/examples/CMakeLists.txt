@@ -19,21 +19,35 @@ target_sources(sealexamples
         6_performance.cpp
 )
 
+
+find_package(SEAL 3.4.5 EXACT REQUIRED
+    # Providing a path so this can be built without installing Microsoft SEAL
+    PATHS ${SEALExamples_SOURCE_DIR}/../src/cmake
+)
+
 ## this will create a new executable, called 'first argument' in tuple, based off file from second argument in tuple ##
-#add_executable(temp_blah temp_examples.cpp)
-#add_executable(CKKS_test CKKS.cpp)
-#add_executable(sub_test t.cpp)
 #add_executable(compare_test compare.cpp)
 #add_executable(pairwise_CKKS_test pairwise_CKKS.cpp)
-add_executable(pairwise_CKKS_temp pairwise_CKKS_temp.cpp)
-add_executable(pairwise_BFV_test pairwise_BFV.cpp)
+#add_executable(pairwise_CKKS_temp pairwise_CKKS_temp.cpp)
+#add_executable(pairwise_BFV_test pairwise_BFV.cpp)
 #add_executable(matrix_test matrix_test.cpp)
-add_executable(BFV_encryptor BFV_encryptor.cpp)
+#add_executable(BFV_encryptor BFV_encryptor.cpp)
+
+
+## step one
 add_executable(site_A site_A_encrypt.cpp)
+
+## step two
 add_executable(site_B site_B_encrypt.cpp)
-add_executable(read_in_hamming read_in_hamming.cpp)
-#add_executable(compare_A_B compare_A_B.cpp)
+
+## step thre
 add_executable(t_compare test_compare.cpp)
+
+## step four
+add_executable(read_in_hamming read_in_hamming.cpp)
+
+## not needed
+#add_executable(compare_A_B compare_A_B.cpp)
 
 
 # Import Microsoft SEAL
@@ -51,17 +65,20 @@ add_executable(t_compare test_compare.cpp)
 target_link_libraries(sealexamples SEAL::seal)
 
 ## link the libraries between your executable and SEAL ##
-#target_link_libraries(temp_blah SEAL::seal)
-#target_link_libraries(CKKS_test SEAL::seal)
-#target_link_libraries(sub_test SEAL::seal)
 #target_link_libraries(compare_test SEAL::seal)
 #target_link_libraries(pairwise_CKKS_test SEAL::seal)
-target_link_libraries(pairwise_BFV_test SEAL::seal)
+#target_link_libraries(pairwise_BFV_test SEAL::seal)
 #target_link_libraries(matrix_test SEAL::seal)
-target_link_libraries(pairwise_CKKS_temp SEAL::seal)
-target_link_libraries(BFV_encryptor SEAL::seal)
+#target_link_libraries(pairwise_CKKS_temp SEAL::seal)
+#target_link_libraries(BFV_encryptor SEAL::seal)
+
+
+
 target_link_libraries(site_A SEAL::seal)
 target_link_libraries(site_B SEAL::seal)
-target_link_libraries(read_in_hamming SEAL::seal)
-#target_link_libraries(compare_A_B SEAL::seal)
 target_link_libraries(t_compare SEAL::seal)
+target_link_libraries(read_in_hamming SEAL::seal)
+
+## not needed
+#target_link_libraries(compare_A_B SEAL::seal)
+

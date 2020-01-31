@@ -72,34 +72,42 @@ int main()
     // Set up encryption parameters
     EncryptionParameters parms(scheme_type::BFV);
     parms.set_poly_modulus_degree(poly_mod);
-    parms.set_coeff_modulus(DefaultParams::coeff_modulus_128(poly_mod));
-    //parms.set_plain_modulus(40961);
+    parms.set_coeff_modulus(CoeffModulus::BFVDefault(poly_mod));
     parms.set_plain_modulus(plain_mod_batch);
    
-   // save the parms here, write to a file to then be loaded in another script //
+    // save the parms here, write to a file to then be loaded in another script //
     ofstream parm_file;
     parm_file.open("parms_A.txt");
-    EncryptionParameters::Save(parms, parm_file);
+    // will need to fix this section in a bit
+    parms.EncryptionParameters::save(parm_file);
 
     /*
     We create the SEALContext as usual and print the parameters.
     */
-    auto context = SEALContext::Create(parms);
+    auto context = SEALContext::Create(parms, false, sec_level_type::none);
 
 
-    /*
-    We can verify that batching is indeed enabled by looking at the encryption
-    parameter qualifiers created by SEALContext.
-    */
-    auto qualifiers = context->context_data()->qualifiers();
-    cout << "Batching enabled: " << boolalpha << qualifiers.using_batching
-         << endl;
+    // new qualifiers ~~ batching will throw error if it doesnt work //
+    auto qualifiers = context->first_context_data()->qualifiers();
+
 
     KeyGenerator keygen(context);
     auto public_key = keygen.public_key();
     auto secret_key = keygen.secret_key();
-    auto gal_keys = keygen.galois_keys(30);
-    auto relin_keys16 = keygen.relin_keys(16);
+
+    GaloisKeys gal_keys;
+    gal_keys = keygen.galois_keys();
+    
+    RelinKeys relin_keys16;
+    relin_keys16 = keygen.relin_keys();
+ 
+    ofstream gk_file;
+    gk_file.open("gk_A.txt");
+    gal_keys.save(gk_file);
+
+    ofstream rk_file;
+    rk_file.open("rk_A.txt");
+    relin_keys16.save(rk_file);   
     
     ofstream pk_file;
     pk_file.open("pk_A.txt");
@@ -109,14 +117,7 @@ int main()
     sk_file.open("sk_A.txt");
     secret_key.save(sk_file);
 
-    ofstream gk_file;
-    gk_file.open("gk_A.txt");
-    gal_keys.save(gk_file);
-
-    ofstream rk_file;
-    rk_file.open("rk_A.txt");
-    relin_keys16.save(rk_file);
-
+    
     /*
     We also set up an Encryptor here.
     */
@@ -142,7 +143,7 @@ int main()
     // Read FASTA file
     ifstream hxb2;
     //hxb2.open("../examples/rsrc/HXB2_prrt_multiple.fa");
-    hxb2.open("../native/xamples/rsrc/Site_1_aligned.fa");
+    hxb2.open("../examples/rsrc/Site_1_aligned.fa");
     
     cout << endl;
     cout << "READING FASTA" << endl;
@@ -203,9 +204,11 @@ int main()
         
         // saving the ciphertext here //
         string s = to_string(i);
-
+    
+        /*
         ofstream myfile;
         myfile.open("encrypted_A_" + s + ".txt");
         encrypted_matrix.save(myfile);
+        */
     }
 }

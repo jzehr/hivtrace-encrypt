@@ -85,34 +85,38 @@ int main()
     ifstream infile_parms_A;
     infile_parms_A.open("parms_A.txt");
     EncryptionParameters parms(scheme_type::BFV);
-    parms = EncryptionParameters::Load(infile_parms_A);
+    parms.load(infile_parms_A);
 
     /*
     We create the SEALContext as usual and print the parameters.
-    */
     auto context = SEALContext::Create(parms);
+    */
 
+    auto context = SEALContext::Create(parms, false, sec_level_type::none);
     
     /*
     We can verify that batching is indeed enabled by looking at the encryption
     parameter qualifiers created by SEALContext.
-    */
+
     auto qualifiers = context->context_data()->qualifiers();
     cout << "Batching enabled: " << boolalpha << qualifiers.using_batching
          << endl;
+    */
+    auto qualifiers = context->first_context_data()->qualifiers();
+
 
     KeyGenerator keygen(context);
 
     ifstream gk_A;
     gk_A.open("gk_A.txt");
     GaloisKeys g_keys;
-    g_keys.unsafe_load(gk_A);
+    g_keys.load(context, gk_A);
     //auto gal_keys = keygen.galois_keys(30);
     
     ifstream rk_A;
     rk_A.open("rk_A.txt");
     RelinKeys r_keys;
-    r_keys.unsafe_load(rk_A);
+    r_keys.load(context, rk_A);
     //auto relin_keys16 = keygen.relin_keys(16);
 
     
@@ -166,8 +170,8 @@ int main()
             Ciphertext cipher_A;
             Ciphertext cipher_B;
 
-            cipher_A.unsafe_load(in_file_A);
-            cipher_B.unsafe_load(in_file_B);
+            cipher_A.load(context, in_file_A);
+            cipher_B.load(context, in_file_B);
 
             //cout << "A goes to --> " << a_file << " B goes to --> " << b_file << endl;
             evaluator.sub_inplace(cipher_A, cipher_B);
