@@ -79,7 +79,7 @@ int main()
     We create the SEALContext as usual and print the parameters.
     */
     //auto context = SEALContext::Create(parms);
-    auto context = SEALContext::Create(parms, false, sec_level_type::none);
+    auto context = SEALContext::Create(parms);
 
     /*
     We can verify that batching is indeed enabled by looking at the encryption

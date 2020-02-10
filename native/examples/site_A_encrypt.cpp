@@ -73,34 +73,33 @@ int main()
     EncryptionParameters parms(scheme_type::BFV);
     parms.set_poly_modulus_degree(poly_mod);
     parms.set_coeff_modulus(CoeffModulus::BFVDefault(poly_mod));
-    parms.set_plain_modulus(plain_mod_batch);
+    parms.set_plain_modulus(PlainModulus::Batching(poly_mod, 20));
    
     // save the parms here, write to a file to then be loaded in another script //
+    
     ofstream parm_file;
     parm_file.open("parms_A.txt");
     // will need to fix this section in a bit
     parms.EncryptionParameters::save(parm_file);
+    
 
     /*
     We create the SEALContext as usual and print the parameters.
     */
-    auto context = SEALContext::Create(parms, false, sec_level_type::none);
-
+    auto context = SEALContext::Create(parms);
 
     // new qualifiers ~~ batching will throw error if it doesnt work //
     auto qualifiers = context->first_context_data()->qualifiers();
 
-
     KeyGenerator keygen(context);
     auto public_key = keygen.public_key();
     auto secret_key = keygen.secret_key();
-
-    GaloisKeys gal_keys;
-    gal_keys = keygen.galois_keys();
     
-    RelinKeys relin_keys16;
-    relin_keys16 = keygen.relin_keys();
+    // need for later 
+    auto gal_keys = keygen.galois_keys();
+    auto relin_keys16 = keygen.relin_keys();
  
+    
     ofstream gk_file;
     gk_file.open("gk_A.txt");
     gal_keys.save(gk_file);
@@ -116,7 +115,7 @@ int main()
     ofstream sk_file;
     sk_file.open("sk_A.txt");
     secret_key.save(sk_file);
-
+    
     
     /*
     We also set up an Encryptor here.
@@ -204,11 +203,10 @@ int main()
         
         // saving the ciphertext here //
         string s = to_string(i);
-    
-        /*
+      
         ofstream myfile;
         myfile.open("encrypted_A_" + s + ".txt");
         encrypted_matrix.save(myfile);
-        */
+        
     }
 }
