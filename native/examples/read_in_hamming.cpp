@@ -125,7 +125,8 @@ int main() {
     
 
             int ans = result[0]/2;
-            int len_of_seq = 4;
+            //int len_of_seq = 4;
+            int len_of_seq = 5;
             int real_ans = ans % len_of_seq;
             
             cout << "Different Between A " << i + 1 << " and " << "B " << j + 1 << " is: " << real_ans << endl;

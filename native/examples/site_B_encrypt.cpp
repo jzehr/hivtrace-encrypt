@@ -172,8 +172,6 @@ int main()
 
         auto siteB_vector = siteB[i];
 
-        auto siteB_size = siteB_vector.size();
-
         Plaintext plain_matrix;
         batch_encoder.encode(siteB_vector, plain_matrix);
 

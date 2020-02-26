@@ -15,19 +15,10 @@
 #include <list>
 #include <vector>
 
-//#define poly_mod 2048
-
-// #define poly_mod 4096
-// #define plain_mod_batch 40961
-
-// this one doesnt work properly
+// these are our parms
 #define poly_mod 8192
-#define plain_mod_batch 114689
 
-// #define poly_mod 16384
-// #define plain_mod_batch 163841
-
-#define EPSILON 1
+//#define EPSILON 1
 
 #include "seal/seal.h"
 
@@ -79,7 +70,6 @@ int main()
     
     ofstream parm_file;
     parm_file.open("parms_A.txt");
-    // will need to fix this section in a bit
     parms.EncryptionParameters::save(parm_file);
     
 
