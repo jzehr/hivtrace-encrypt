@@ -97,6 +97,8 @@ int main()
 
     PublicKey pk;
     pk.load(context, pk_A);
+    
+
 
     /*
     We also set up an Encryptor here.
